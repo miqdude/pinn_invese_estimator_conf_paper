@@ -15,7 +15,7 @@
 \usepackage{amsmath}
 \pgfplotsset{compat=1.18} 
 
-\title{Adaptive Control of Asymmetric Payloads in Rigid Multi-Quadrotor Systems Using PINNs}
+\title{Physics Informed Machine Learning for Parameter Estimation in Rigid Multi-Quadrotor Transport System}
 
 \author{
 \IEEEauthorblockN{Miqdad Abdurrahman, Anggera Bayuwindra, Hilton Tnunay}
@@ -30,7 +30,7 @@ Email: 23224011@mahasiswa.itb.ac.id, bayuwindra@itb.ac.id, hilton.tnunay@itb.ac.
 \maketitle
 
 \begin{abstract}
-Cooperative multi-quadrotor systems rigidly attached to a common frame excel at heavy-lift transportation. However, uncertain payload Centers of Gravity (CoG) introduce continuous disturbance torques, degrading geometric controller performance and causing severe lateral drift. This paper introduces an in-the-loop Physics-Informed Neural Network (PINN) parameter estimation framework to dynamically identify unknown CoG shifts in-flight. Unlike classical batch least-squares or Concurrent Learning frameworks that require persistent excitation or mathematically full-rank history stacks, the proposed PINN utilizes continuous gradient descent over a short-term receding horizon. To avoid artificial coordinate singularities, the network formulates translational and rotational physics residuals using Euler-Lagrange and Euler-Poincaré equations directly on the Special Orthogonal group, $SO(3)$. The estimated parameters continuously update the control allocation matrix, enabling adaptive thrust reallocation. Simulations at 240 Hz confirm that the PINN estimator rapidly converges, arrests transient lateral drift, and successfully restores trajectory tracking stability. \footnote{The source code for the PINN estimator and simulation environment is available at: \url{https://github.com/miqdude/pinn_invese_estimator_conf_repo}}
+Cooperative multi-quadrotor systems rigidly attached to a common frame excel at heavy-lift transportation. However, unmodeled payload can introduce continuous disturbance torques, degrading controller performance and causing severe lateral drift. This paper introduces an in-the-loop Physics-Informed Neural Network (PINN) parameter estimation framework to dynamically identify unmodeled off-center payload. Unlike classical batch least-squares or Concurrent Learning frameworks that require persistent excitation or mathematically full-rank history stacks, the proposed PINN utilizes continuous gradient descent over a short-term receding horizon. By utilizing translational and rotational physics residuals using Euler-Lagrange and Euler-Poincaré equations directly on the Special Orthogonal group, $SO(3)$, the estimated parameters continuously update the control allocation matrix, enabling adaptive thrust reallocation. The Simulations confirm that the PINN estimator rapidly converges, arrests transient lateral drift, and successfully restores trajectory tracking stability. \footnote{The source code for the PINN estimator and simulation environment is available at: \url{https://github.com/miqdude/pinn_invese_estimator_conf_repo}}
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -49,25 +49,43 @@ Recent mitigations include structural hardware optimization—such as physically
 
 To mitigate these unmodeled disturbances, recent literature has explored online parameter estimation and advanced control architectures. Classical approaches, such as the batch and recursive least-squares algorithms utilized in \cite{mellinger2013trajectory}, require strict persistent excitation to prevent regressor matrix singularities. To overcome the need for continuous excitation, Concurrent Learning (CL) frameworks \cite{lee_concurrent_2025} have been introduced. While CL successfully adapts to unknown parameters, convergence is mathematically guaranteed only when the recorded history stack achieves full column rank. This strict linear independence requirement leaves the multi-agent system (MAS) highly vulnerable to lateral drift during the initial transient flight phase. Alternatively, computationally intensive frameworks leveraging Model Predictive Control (MPC) synchronized with Digital Twins (DT) \cite{farid_digital_2025} have been proposed to estimate the state of irregular payloads. However, this architecture inherently introduces network and computational latency between the physical controller and the DT simulator, degrading the real-time responsiveness required for aggressive stabilization.
 
-\subsection{Contributions}
-To bridge the gap between rapid parameter estimation and adaptive control, we introduce a novel framework for rigid multi-quadrotor systems. The primary contributions of this work are:
+The primary objective of this research is to develop an in-the-loop Physics-Informed Neural Network (PINN) estimator for cooperative, rigid multi-quadrotor payload transportation systems. Specifically, this work aims to mitigate the disturbance caused from an unmodeled off-center static payload. To bridge the gap between the PINN parameter estimator and the multi-quadrotor control system, the primary contributions of this work are:
+
 \begin{enumerate}
-    \item \textbf{Rank-Free PINN Estimation:} We develop an in-the-loop PINN that dynamically identifies the unknown payload shift by utilizing a short-term receding horizon removing dependency of highly-variant persistent excitation.
-    \item \textbf{Singularity-Free Manifold Optimization:} The network’s loss function embeds energy-based translational Euler-Lagrange and rotational Euler-Poincaré equations directly on the $SO(3)$. 
-    \item \textbf{Dynamic Control Integration:} The continuously updated offset parameters are fed directly into the control allocation matrix to immediately restore the tracking stability.
+    \item a PINN estimator that dynamically identifies the unknown payload mass and static payload shift by utilizing a short-term receding horizon;
+    \item embedding energy-based loss function based on Euler-Lagrange and Euler-Poincaré equations on the $SO(3)$; 
+    \item integration of the PINN with a controller based on \cite{mellinger2013trajectory} to continuously updated offset parameters into the control allocation matrix to immediately restore the tracking stability.
 \end{enumerate}
 
 \section{Preliminaries}
 
-\subsection{Cooperative Payload Transportation Dynamics}
-In cooperative aerial transportation, multiple unmanned aerial vehicles (UAVs) are physically coupled to a shared payload to increase total lift capacity and system redundancy \cite{guebsi_drones_2024}. When rigidly attached, the distributed Multi-Agent System (MAS) kinematically functions as a single composite rigid body \cite{tan_cooperative_2018}. While this mechanical coupling fundamentally eliminates the need for complex inter-agent collision avoidance algorithms, it introduces significant dynamic challenges \cite{lee_concurrent_2025, farid_digital_2025}.
+% \subsection{Cooperative Payload Transportation Dynamics}
+% In cooperative aerial transportation, multiple unmanned aerial vehicles (UAVs) are physically coupled to a shared payload to increase total lift capacity and system redundancy \cite{guebsi_drones_2024}. When rigidly attached, the distributed Multi-Agent System (MAS) kinematically functions as a single composite rigid body \cite{tan_cooperative_2018}. While this mechanical coupling fundamentally eliminates the need for complex inter-agent collision avoidance algorithms, it introduces significant dynamic challenges \cite{lee_concurrent_2025, farid_digital_2025}.
 
-The stability and navigation of the MAS become a centralized rigid-body control problem. Let the inertial world frame be denoted by $\mathcal{W}$ and the composite body-fixed frame by $\mathcal{B}$. The state of this composite system is defined by its global position $\mathbf{r} \in \mathbb{R}^3$ and its spatial orientation $\mathbf{R} \in SO(3)$. Control authority is achieved via an allocation matrix $A$, which maps the individual scalar thrusts generated by each quadrotor into a singular composite wrench acting on $\mathcal{B}$. Consequently, safe trajectory tracking depends entirely on accurate geometric mapping, where the primary dynamic unknowns dictating system stability are the payload's shifting Center of Gravity (CoG) and the resulting inertia tensor.
+% The stability and navigation of the MAS become a centralized rigid-body control problem. Let the inertial world frame be denoted by $\mathcal{W}$ and the composite body-fixed frame by $\mathcal{B}$. The state of this composite system is defined by its global position $\mathbf{r} \in \mathbb{R}^3$ and its spatial orientation $\mathbf{R} \in SO(3)$. Control authority is achieved via an allocation matrix $A$, which maps the individual scalar thrusts generated by each quadrotor into a singular composite wrench acting on $\mathcal{B}$. Consequently, safe trajectory tracking depends entirely on accurate geometric mapping, where the primary dynamic unknowns dictating system stability are the payload's shifting Center of Gravity (CoG) and the resulting inertia tensor.
 
 \subsection{Physics-Informed Parameter Estimation}
-Physics-Informed Neural Networks (PINNs) represent a paradigm shift in scientific machine learning by seamlessly embedding known physical laws into the deep learning optimization process. Unlike purely data-driven models that rely exclusively on large empirical datasets to learn system behaviors implicitly, PINNs utilize governing Ordinary Differential Equations (ODEs) as explicit regularizers within their loss function \cite{raissi2019physics,mojgani_kolmogorov_2023}.
+Physics-Informed Neural Networks (PINNs) represent a paradigm shift in scientific machine learning by seamlessly embedding known physical laws into the deep learning optimization process. Unlike purely data-driven models that rely exclusively on large empirical datasets to learn system behaviors implicitly, PINNs utilize governing Partial Differential Equations (PDEs) or Ordinary Differential Equations (ODEs) as explicit regularizers within their loss function \cite{raissi2019physics,mojgani_kolmogorov_2023}.
 
-In the context of aerial robotics or control system in generic, PINNs are highly effective for solving \textit{inverse problems} \cite{lakshminarayana_application_2022}. By using continuous time $t$ as the primary input, the network predicts the kinematic states of the MAS. These predictions are then evaluated against the strict mathematical boundaries of Newton-Euler rigid body dynamics. By minimizing the residual discrepancy between the network's predictions, the measured flight data, and these physical constraints, the PINN can dynamically infer unmodeled system parameters---such as the unknown CoG offset---directly during flight, providing a critical bridge between physical mechanics and adaptive control \cite{serrano_physics-informed_2024}.
+The network typically consists of fully connected Artificial Neural Network (ANN) layers parameterized by weights and biases $\theta$ \cite{raissi2019physics}. To illustrate the fundamental mechanism, consider a general dynamical system governed by an ODE of the form $\mathcal{F}(u, \dot{u}, \ddot{u}, t) = 0$. The PINN acts as a surrogate model, taking the independent variable time $t$ as its sole input and outputting a predicted system state $\hat{u}(t)$:
+
+\begin{equation}
+    \hat{u}(t) = \mathcal{N}_{\theta}(t).
+\end{equation}
+
+During training, the network minimizes a composite loss function $\mathcal{L}_{total}$ that balances empirical observation with physical consistency. The data loss ($\mathcal{L}_{data}$) anchors the network to reality by minimizing the Mean Squared Error (MSE) between the network's predictions $\hat{u}(t)$ measured state $u_{true}$ multiply with a scalar hyperparameter $\lambda_1$ at specific time steps $t_i$:
+
+\begin{equation}
+    \mathcal{L}_{data} = \lambda_1 \frac{1}{N} \sum_{i=1}^{N} \left\lVert \hat{u}(t_i) - u_{true}(t_i) \right\rVert^2 .
+\end{equation}
+
+Simultaneously, the network evaluates the physical validity of its predictions. Rather than relying on numerical approximation, PINNs leverage Automatic Differentiation (Autograd) to compute exact analytical derivatives of the output with respect to the input (e.g., $\dot{\hat{u}} = \frac{\partial \mathcal{N}_{\theta}}{\partial t}$). These derivatives are substituted back into the governing equation to form a physics residual $R(t) = \mathcal{F}(\hat{u}, \dot{\hat{u}}, \ddot{\hat{u}}, t)$. The physics loss ($\mathcal{L}_{physics}$) penalizes any deviation from zero across $M$ collocation points:
+
+\begin{equation}
+    \mathcal{L}_{physics} = \lambda_2 \frac{1}{M} \sum_{j=1}^{M} \left\lVert R(t_j) \right\rVert^2 .
+\end{equation}
+
+The total loss is calculated as a weighted sum of these objectives, $\mathcal{L}_{total} = \lambda_1 \mathcal{L}_{data} + \lambda_2 \mathcal{L}_{physics}$. By minimizing this composite function, the network learns to predict states that not only match the data but also strictly obey the underlying physical mechanics of the system \cite{mojgani_kolmogorov_2023}.
 
 % ------------------------------------------------------------------
 % System Description
@@ -77,11 +95,13 @@ In the context of aerial robotics or control system in generic, PINNs are highly
 \subsection{System Modeling}
 
 We define the world frame as $\mathcal{W}$ and the body frame as $\mathcal{B}$, position is $\mathbf{r} = [x, y, z]^T$, and orientation is defined by Euler angles $\mathbf{\eta} = (\phi, \theta, \psi)$:
+
 \begin{equation}
-    \mathcal{W} = [x_{\mathcal{W}}, y_{\mathcal{W}}, z_{\mathcal{W}}]
+    \mathcal{W} = [x_{\mathcal{W}}, y_{\mathcal{W}}, z_{\mathcal{W}}],
 \end{equation}
+
 \begin{equation}
-    \mathcal{B} = [x_{\mathcal{B}}, y_{\mathcal{B}}, z_{\mathcal{B}}]    
+    \mathcal{B} = [x_{\mathcal{B}}, y_{\mathcal{B}}, z_{\mathcal{B}}].
 \end{equation}
 
 % \begin{figure}[htbp] 
@@ -91,10 +111,16 @@ We define the world frame as $\mathcal{W}$ and the body frame as $\mathcal{B}$, 
 %     \label{fig:pinns_and_control_diagram} 
 % \end{figure}
 
-The MAS we implement is a centeralized control derived from \cite{mellinger2013trajectory} commanding the drones by giving the control input $\boldsymbol{\tau} = [F_B, M_{xB}, M_{yB}, M_{zB}]^T$ relates to individual thrust inputs $\mathbf{u} = [F_1, F_2, F_3, F_4]^T$ via the allocation matrix $A \in \mathbb{R}^{4 \times 4}$:
+The MAS employs a centralized control architecture derived from \cite{mellinger2013trajectory}. The composite rigid body is commanded via a unified control wrench $\boldsymbol{\tau}$, defined as:
+
+\begin{equation}
+    \boldsymbol{\tau} = [F_B, M_{xB}, M_{yB}, M_{zB}]^T,
+\end{equation}
+
+\noindent where $F_B$ represents the total collective thrust acting along the inertial $z$-axis, while $M_{xB}$, $M_{yB}$, and $M_{zB}$ denote the respective desired roll, pitch, and yaw control moments applied about the body frame which relates to individual quadrotor thrust inputs $\mathbf{u} = [F_1, F_2, F_3, F_4]^T$ via the allocation matrix $A \in \mathbb{R}^{4 \times 4}$:
 
 \begin{equation} \label{eq:tau}
-    \boldsymbol{\tau} = [F_B, M_{xB}, M_{yB}, M_{zB}]^T = A \mathbf{u}
+    \boldsymbol{\tau} = [F_B, M_{xB}, M_{yB}, M_{zB}]^T = A \mathbf{u},
 \end{equation}
 \begin{equation}
     A =
@@ -103,7 +129,7 @@ The MAS we implement is a centeralized control derived from \cite{mellinger2013t
         y_1 & y_2 & y_3 & y_4 \\
         -x_1 & -x_2 & -x_3 & -x_4 \\
         c_1 & c_2 & c_3 & c_4
-    \end{bmatrix}
+    \end{bmatrix}.
 \end{equation}
 
 The rows of $A$ denote total thrust, roll moment, pitch moment, and yaw reactive torque, respectively. Required individual thrusts are derived by inversion:
@@ -111,40 +137,11 @@ The rows of $A$ denote total thrust, roll moment, pitch moment, and yaw reactive
 \begin{equation}
     \mathbf{u} = A^{-1}
     \begin{bmatrix} F_B \ M_{xB} \ M_{yB} \ M_{zB}
-    \end{bmatrix}\label{eq:inverse_allocation}
-\end{equation}
-
-\subsection{Centralized Control Design}
-Based on \cite{mellinger2013trajectory}, the controller separates position and attitude tracking. Position and velocity errors define commanded acceleration $\mathbf{\ddot{r}}_{cmd}$:
-
-\begin{equation}
-    \mathbf{e}_p = \mathbf{r}_{des} - \mathbf{r}, \quad \mathbf{e}_v = \mathbf{\dot{r}}_{des} - \mathbf{\dot{r}}
-\end{equation}
-\begin{equation}\mathbf{\ddot{r}}_{cmd} = K_p \mathbf{e}_p + K_d \mathbf{e}_v + \mathbf{\ddot{r}}_{\text{ff}}
-\end{equation}
-
-Desired roll ($\phi^{des}$), pitch ($\theta^{des}$), and total thrust ($F_B^{des}$) are extracted via small-angle approximation:
-
-\begin{equation}
-    \begin{split}
-        \phi^{des} &= \frac{1}{g} (\ddot{r}^{des}_{x} \sin \psi_T - \ddot{r}^{des}_{y} \cos \psi_T) \\
-        \theta^{des} &= \frac{1}{g} (\ddot{r}^{des}_{y} \cos \psi_T + \ddot{r}^{des}_{y} \sin \psi_T) \\
-        F_B^{des} &= m(\ddot{r}^{des}_{z} + g)
-    \end{split}
-\end{equation}
-
-Inner-loop desired moments $\mathbf{M}_B^{des}$ regulate orientation against angular velocities $(p, q, r)$:
-
-\begin{equation}
-    \begin{split}        
-        M_{xB}^{des} &= k_{p, \phi} (\phi^{des} - \phi) + k_{d, \phi} (p^{des} - p) \\
-        M_{yB}^{des} &= k_{p, \theta} (\theta^{des} - \theta) + k_{d, \theta} (q^{des} - q) \\
-        M_{zB}^{des} &= k_{p, \psi} (\psi^{des} - \psi) + k_{d, \psi} (r^{des} - r)
-    \end{split}
+    \end{bmatrix}\label{eq:inverse_allocation}.
 \end{equation}
 
 \subsection{Dynamic Thrust Allocation}
-An asymmetric payload shifts the CoG, altering the effective moment arms. Let $\hat{\mathbf{d}}_{\text{cog}} = [\hat{x}_{\text{cog}}, \hat{y}_{\text{cog}}]^T$ denote the estimated offset. Redefining the lever arms as $\Delta x_i = x_i - \hat{x}_{\text{cog}}$ and $\Delta y_i = y_i - \hat{y}_{\text{cog}}$, the allocation matrix adapts dynamically:
+A payload shifts from the body central frame, altering the effective moment arms. Let $\hat{\mathbf{d}}_{\text{cog}} = [\hat{x}_{\text{cog}}, \hat{y}_{\text{cog}}]^T$ denote the estimated offset. Redefining the lever arms as $\Delta x_i = x_i - \hat{x}_{\text{cog}}$ and $\Delta y_i = y_i - \hat{y}_{\text{cog}}$, the allocation matrix adapts dynamically:
 
 \begin{equation}
     A_{\text{final}} = \begin{bmatrix}
@@ -152,42 +149,72 @@ An asymmetric payload shifts the CoG, altering the effective moment arms. Let $\
     \Delta y_1 & \Delta y_2 & \Delta y_3 & \Delta y_4 \\
     -\Delta x_1 & -\Delta x_2 & -\Delta x_3 & -\Delta x_4 \\
     c_1 & c_2 & c_3 & c_4
-    \end{bmatrix} \label{eq:allocation_matrix}
+    \end{bmatrix}. \label{eq:allocation_matrix}
 \end{equation}
 
 Control inputs are computed via the Moore-Penrose pseudo-inverse to handle transient rank deficiencies:
 
 \begin{equation}
-    \mathbf{u} = A_{\text{final}}^{+} \boldsymbol{\tau}\label{eq:final_u}
+    \mathbf{u} = A_{\text{final}}^{+} \boldsymbol{\tau}. \label{eq:final_u}
 \end{equation}
 
 % ------------------------------------------------------------------
 % Methodology
 % ------------------------------------------------------------------
 \section{Estimator Design}
+
+\subsection{Centralized Control Design}
+Based on \cite{mellinger2013trajectory}, the controller separates position and attitude tracking. Position and velocity errors define commanded acceleration $\mathbf{\ddot{r}}_{cmd}$:
+
+\begin{equation}
+    \mathbf{e}_p = \mathbf{r}_{des} - \mathbf{r}, \quad \mathbf{e}_v = \mathbf{\dot{r}}_{des} - \mathbf{\dot{r}},
+\end{equation}
+
+\begin{equation}\mathbf{\ddot{r}}_{cmd} = K_p \mathbf{e}_p + K_d \mathbf{e}_v + \mathbf{\ddot{r}}_{\text{ff}}.
+\end{equation}
+
+Desired roll ($\phi^{des}$), pitch ($\theta^{des}$), and total thrust ($F_B^{des}$) are extracted via small-angle approximation:
+
+\begin{equation}
+    \begin{split}
+        \phi^{des} &= \frac{1}{g} (\ddot{r}^{des}_{x} \sin \psi_T - \ddot{r}^{des}_{y} \cos \psi_T), \\
+        \theta^{des} &= \frac{1}{g} (\ddot{r}^{des}_{y} \cos \psi_T + \ddot{r}^{des}_{y} \sin \psi_T), \\
+        F_B^{des} &= m(\ddot{r}^{des}_{z} + g).
+    \end{split}
+\end{equation}
+
+Inner-loop desired moments $\mathbf{M}_B^{des}$ regulate orientation against angular velocities $(p, q, r)$:
+
+\begin{equation}
+    \begin{split}        
+        M_{xB}^{des} &= k_{p, \phi} (\phi^{des} - \phi) + k_{d, \phi} (p^{des} - p), \\
+        M_{yB}^{des} &= k_{p, \theta} (\theta^{des} - \theta) + k_{d, \theta} (q^{des} - q), \\
+        M_{zB}^{des} &= k_{p, \psi} (\psi^{des} - \psi) + k_{d, \psi} (r^{des} - r).
+    \end{split}
+\end{equation}
+
 \subsection{PINN Architecture}
-To address 6-DOF dynamics, our PINN framework uses time $t$ to solve time-dependent ODEs \cite{lakshminarayana_application_2022, mojgani_kolmogorov_2023, raissi_physics-informed_2019}. The network structure consists of fully-connected hidden layers with size of 64 per layer. Then, it connects to the output layer that will estimate the 12 states of the body which will be described in the next section. The structure of the network is illustrated in \ref{fig:pinns_architecture}. 
-The states will be used to minimize physics-induced residuals which allows the network to identify payload parameters and feed them back into the allocation matrix. 
+To address the 6-DOF rigid-body dynamics, our PINN framework utilizes continuous time $t$ as the sole independent variable to solve the time-dependent ODEs \cite{lakshminarayana_application_2022, mojgani_kolmogorov_2023, raissi_physics-informed_2019}. The neural network architecture comprises two fully connected hidden layers, each containing 64 neurons. These intermediate layers map to a 12-neuron output layer designed to predict the full kinematic state vector of the composite body, which is explicitly defined in the subsequent section. The complete network topology is illustrated in Fig. \ref{fig:pinns_architecture}.
 
 \begin{figure}[htbp] 
     \centering 
     \includegraphics[width=0.3\textwidth]{images/pinns_architecture.png} 
-    \caption{Illustration of the PINNs Architecture}
+    \caption{The proposed PINN architecture based on a fully connected ANN. The input layer accepts continuous time $t$, which is propagated through two hidden layers comprising 64 neurons each. The output layer yields the 12-dimensional kinematic state vector of the composite body defined in Eq. (\ref{eq:body_state}). A hyperbolic tangent ($\tanh$) activation function is employed across all hidden layers.}
     \label{fig:pinns_architecture} 
 \end{figure}
 
 \subsection{Loss Function Formulation}
 
-The neural network acts as a surrogate model mapping continuous time $t$ to the predicted 6-DOF kinematic state of the system. We define the complete state vector $\mathbf{S}$, comprising the position, linear velocity, attitude, and angular velocity:
+The neural network acts as a surrogate model mapping continuous time $t$ to the predicted 6-DOF kinematic state of the system. We define the complete state vector $\mathbf{s}$, comprising the position, linear velocity, attitude, and angular velocity:
 
 \begin{equation}
-    \mathbf{S} = [\mathbf{r}^T, \mathbf{\dot{r}}^T, \boldsymbol{\eta}^T, \boldsymbol{\omega}^T]^T
+    \mathbf{s} = [\mathbf{r}^T, \mathbf{\dot{r}}^T, \boldsymbol{\eta}^T, \boldsymbol{\omega}^T]^T \label{eq:body_state}.
 \end{equation}
 
 To train the network, we formulate a composite loss function $\mathcal{L}_{total}$ \cite{serrano_physics-informed_2024, raissi_physics-informed_2019} that simultaneously penalizes empirical data deviations and violations of rigid-body dynamics. This objective function is defined as a weighted sum of the data-driven observation loss ($\mathcal{L}_{data}$), the translational physics residual ($\mathcal{L}_{trans}$), and the rotational physics residual ($\mathcal{L}_{rot}$):
 
 \begin{equation}
-    \mathcal{L}_{total} = \lambda_{1} \mathcal{L}_{data} + \lambda_{2} \mathcal{L}_{trans} + \lambda_{3} \mathcal{L}_{rot} \label{eq:loss_function}
+    \mathcal{L}_{total} = \lambda_{1} \mathcal{L}_{data} + \lambda_{2} \mathcal{L}_{trans} + \lambda_{3} \mathcal{L}_{rot} \label{eq:loss_function}.
 \end{equation}
 
 where the hyperparameters $\lambda_{1}, \lambda_{2},$ and $\lambda_{3}$ balance the gradient contributions of each loss term.
@@ -195,63 +222,61 @@ where the hyperparameters $\lambda_{1}, \lambda_{2},$ and $\lambda_{3}$ balance 
 The data loss ensures the network's predictions anchor to the physical reality measured by the onboard sensors. It is computed as the Mean Squared Error (MSE) over a temporal window of $N$ collocation points:
 
 \begin{equation}
-    \mathcal{L}_{data} = \frac{1}{N} \sum_{i=1}^{N} \left\lVert \mathbf{\hat{S}}_i - \mathbf{S}_{true,i} \right\rVert^2 \label{eq:data_loss}
+    \mathcal{L}_{data} = \frac{1}{N} \sum_{i=1}^{N} \left\lVert \mathbf{\hat{S}}_i - \mathbf{S}_{true,i} \right\rVert^2 \label{eq:data_loss}.
 \end{equation}
 
 To enforce the translational physical constraints, we formulate a residual loss based on the Euler-Lagrange equations \cite{haghighatdoost_euler_2026}. Let $L = T_{trans} - V$ denote the system Lagrangian, where $T_{trans}$ is the kinetic energy and $V$ is the potential energy. The translational dynamics must satisfy:
 
 \begin{equation}
-    \frac{d}{dt} \left( \frac{\partial L}{\partial \mathbf{v}} \right) - \frac{\partial L}{\partial \mathbf{r}} = \mathbf{F}_{ext}
+    \frac{d}{dt} \left( \frac{\partial L}{\partial \mathbf{v}} \right) - \frac{\partial L}{\partial \mathbf{r}} = \mathbf{F}_{ext}.
 \end{equation}
 
 Evaluating the kinetic inertial term yields $m\mathbf{\dot{v}}$. Rather than analytically deriving the potential gradient, we leverage PyTorch's Automatic Differentiation (Autograd) engine to dynamically compute $\frac{\partial V}{\partial \mathbf{r}}$ during the forward pass. The resulting translational physics loss minimizes the residual of these forces across the temporal window:
 
 \begin{equation}
-    \mathcal{L}_{trans} = \frac{1}{N} \sum_{i=1}^{N} \left\lVert m \mathbf{\dot{v}}_i + \frac{\partial V}{\partial \mathbf{r}_i} - \mathbf{F}_{ext, i} \right\rVert^2 \label{eq:trans_loss}
+    \mathcal{L}_{trans} = \frac{1}{N} \sum_{i=1}^{N} \left\lVert m \mathbf{\dot{v}}_i + \frac{\partial V}{\partial \mathbf{r}_i} - \mathbf{F}_{ext, i} \right\rVert^2 \label{eq:trans_loss}.
 \end{equation}
 
-While translational dynamics are straightforward, evaluating rotational dynamics using minimal coordinates (e.g., Euler angles) introduces mathematical singularities, commonly known as gimbal lock, at extreme pitch or roll angles. To ensure global mathematical validity, we evaluate the rotational dynamics directly on the Special Orthogonal group, $SO(3)$. The rotational kinetic energy of the rigid multi-agent system is defined as:
+While translational dynamics are straightforward, evaluating rotational dynamics using minimal coordinates (e.g., Euler angles) introduces mathematical singularities, commonly known as gimbal lock, at extreme pitch or roll angles. To ensure global mathematical validity, we evaluate the rotational dynamics directly on the Special Orthogonal group, $SO(3)$. The rotational kinetic energy of the rigid multi-agent system is defined as
 
 \begin{equation}
-    T_{rot} = \frac{1}{2} \boldsymbol{\omega}^T \mathbf{J} \boldsymbol{\omega}
+    T_{rot} = \frac{1}{2} \boldsymbol{\omega}^T \mathbf{J} \boldsymbol{\omega},
 \end{equation}
 
-where $\mathbf{J} \in \mathbb{R}^{3 \times 3}$ is the estimated inertia tensor. By applying the Lagrange-d'Alembert principle to the $SO(3)$ manifold, we obtain the coordinate-free Euler-Poincaré equations:
+\noindent where $\mathbf{J} \in \mathbb{R}^{3 \times 3}$ is the estimated inertia tensor. By applying the Lagrange-d'Alembert principle to the $SO(3)$ manifold, we obtain the coordinate-free Euler-Poincaré equations:
 
 \begin{equation}
-    \frac{d}{dt} \left( \frac{\partial T_{rot}}{\partial \boldsymbol{\omega}} \right) + \boldsymbol{\omega} \times \frac{\partial T_{rot}}{\partial \boldsymbol{\omega}} = \boldsymbol{\tau}_{ext} \label{eq:euler_poincare}
+    \frac{d}{dt} \left( \frac{\partial T_{rot}}{\partial \boldsymbol{\omega}} \right) + \boldsymbol{\omega} \times \frac{\partial T_{rot}}{\partial \boldsymbol{\omega}} = \boldsymbol{\tau}_{ext} \label{eq:euler_poincare}.
 \end{equation}
 
-Recognizing that the partial derivative $\frac{\partial T_{rot}}{\partial \boldsymbol{\omega}} = \mathbf{J} \boldsymbol{\omega}$ represents the system's angular momentum, equation \eqref{eq:euler_poincare} resolves into the Newton-Euler formulation for rigid body rotation. In our cooperative framework, the total external torque $\boldsymbol{\tau}_{ext}$ comprises the known applied control wrench $\boldsymbol{\tau}_{app}$ and the unknown disturbance torque $\boldsymbol{\tau}_{dist}$ generated by the payload's CoG offset. The rotational physics residual evaluated during the forward pass is thus formulated as:
+The partial derivative $\frac{\partial T_{rot}}{\partial \boldsymbol{\omega}} = \mathbf{J} \boldsymbol{\omega}$ represents the system's angular momentum, Eq. (\ref{eq:euler_poincare}) resolves into the Newton-Euler formulation for rigid body rotation. In our cooperative framework, the total external torque $\boldsymbol{\tau}_{ext}$ comprises the known applied control wrench $\boldsymbol{\tau}_{app}$ and the unknown disturbance torque $\boldsymbol{\tau}_{dist}$ generated by the payload's CoG offset. The rotational physics residual evaluated during the forward pass is thus formulated as:
 
 \begin{equation}
-    \text{Res}_{rot} = \left( \mathbf{\hat{J}} \mathbf{\dot{\hat{\boldsymbol{\omega}}}} + \boldsymbol{\hat{\omega}} \times (\mathbf{\hat{J}} \boldsymbol{\hat{\omega}}) \right) - \left( \boldsymbol{\tau}_{app} - \boldsymbol{\tau}_{dist} \right)
+    \mathcal{R}_{rot} = \left( \mathbf{\hat{J}} \mathbf{\dot{\hat{\boldsymbol{\omega}}}} + \boldsymbol{\hat{\omega}} \times (\mathbf{\hat{J}} \boldsymbol{\hat{\omega}}) \right) - \left( \boldsymbol{\tau}_{app} - \boldsymbol{\tau}_{dist} \right).
 \end{equation}
 
 Finally, the rotational loss penalizes the mean squared error of this residual, forcing the neural network to implicitly map the physical discrepancies to the true disturbance parameters:
 
 \begin{equation}
-    \mathcal{L}_{rot} = \frac{1}{N} \sum_{i=1}^{N} \left\lVert \text{Res}_{rot, i} \right\rVert^2 \label{eq:rot_loss}
+    \mathcal{L}_{rot} = \frac{1}{N} \sum_{i=1}^{N} \left\lVert \mathcal{R}_{rot, i} \right\rVert^2 \label{eq:rot_loss}.
 \end{equation}
 
 
 % ------------------------------------------------------------------
 % Experiments
 % ------------------------------------------------------------------
-\section{Simulation and Results}
+\section{Validation and Results}
 
 \subsection{Simulation Environment and Setup}
 
-The composite vehicle consists of four homogeneous quadrotors rigidly attached to the corners of a $1 \times 1$ m central structural frame. The payload is modeled as a small $125 \times 10^{-6}$ m$^3$ box positioned near the geometric center, subject to a spatial offset as described in Eq.~(\ref{eq:payload_random}). Simulations were executed within the PyBullet physics engine using a discrete time step of $\Delta t = 1/240$ s (240 Hz). Individual quadrotor thrust is saturated at a maximum of 50 N, and gravitational acceleration is set to $g = 9.81$ m/s$^2$. The unladen structure possesses a baseline mass of $m_f = 6.8$ kg and carries a payload of $m_p = 1.0$ kg, resulting in a total composite system mass of $m_{tot} = 7.8$ kg.
+The composite vehicle consists of four homogeneous quadrotors rigidly attached to the corners of a $1 \times 1$ m central structural frame. The payload is modeled as a small $125 \times 10^{-6}$ m$^3$ box positioned near the geometric center, subject to a spatial offset as described in Eq.~(\ref{eq:payload_random}). Simulations were executed within the PyBullet physics engine using a discrete time step of $\Delta t = 1/240$ s (240 Hz). Individual quadrotor thrust is saturated at a maximum of 50 N, and gravitational acceleration is set to $g = 9.81$ m/s$^2$. The unladen structure possesses a baseline mass of $m_f = 6.8$ kg and carries a payload of $m_p = 1.0$ kg, resulting in a total composite system mass of $m_{tot} = 7.8$ kg,
 
 \begin{equation}
     d_{x, cog}, d_{y, cog} \sim \mathcal{U}(-0.15, 0.15) \text{ meters}
-    \label{eq:payload_random}
+    \label{eq:payload_random}.
 \end{equation}
-Flights exceeding a 2.0 m Euclidean distance error are terminated.
 
-\subsection{Simulation Loop}
-The Software-in-the-Loop (SITL) architecture interleaves a 240 Hz geometric attitude controller with a 30 Hz PINN estimator, detailed in Algorithm \ref{alg:simulation_loop}.
+To establish a strict stability boundary, any flight exceeding a maximum Euclidean distance tracking error of 2.0 meters is automatically terminated. The execution and evaluation of these flights are governed by a Software-in-the-Loop (SITL) architecture, detailed in Algorithm. \ref{alg:simulation_loop}, which synchronizes the high-frequency controller with the PINN estimator by utilizes a receding horizon buffer of $W = 50$ transitions, executing 3 gradient optimization steps every 5 simulation iterations. The detailed parameters used in the simulation is shown in Table. \ref{tab:sim_parameters}.
 
 \begin{algorithm}[htbp]
 \caption{Simulation Loop with Control and Online Parameters Estimation}
@@ -296,9 +321,6 @@ The Software-in-the-Loop (SITL) architecture interleaves a 240 Hz geometric atti
 \end{algorithmic}
 \end{algorithm}
 
-\subsection{Optimization Parameters}
-The PINN utilizes a receding horizon buffer of $W = 50$ transitions, executing 3 gradient optimization steps every 5 simulation iterations (Table~\ref{tab:sim_parameters}).
-
 \begin{table}[htbp]
     \centering
     \caption{System and Simulation Parameters}
@@ -327,16 +349,50 @@ The PINN utilizes a receding horizon buffer of $W = 50$ transitions, executing 3
     \end{tabular}
 \end{table}
 
-% ------------------------------------------------------------------
-% Results and Discussion
-% ------------------------------------------------------------------
-\section{Results and Discussion}
-
 \subsection{Parameter Convergence and Estimation}
 
-Across 10 distinct simulation episodes, each initialized with newly randomized payload offset parameters, the proposed framework maintained continuous stability without a single failure or crash. Notably, optimal tracking performance was achieved during the very first episode, demonstrating that the system possesses robust, immediate adaptation capabilities and does not rely on multi-episode historical training to function. The PINN effectively minimized the physics residuals formulated in Eqs. (\ref{eq:loss_function}, \ref{eq:trans_loss}, \ref{eq:rot_loss}) as shown in Fig. \ref{fig:physics_loss_ep_1}. While transient spikes in the loss function occurred during aggressive maneuvers, these residuals rapidly decreased. This confirms that the coupled PINN and controller can dynamically compensate for varying payload offsets regardless of instantaneous trajectory demands.
+Across 10 distinct simulation episodes, each initialized with newly randomized payload offset parameters, the proposed framework maintained continuous stability without a single failure or crash. Notably, optimal tracking performance was achieved during the very first episode, demonstrating that the system possesses robust, immediate adaptation capabilities and does not rely on multi-episode historical training to function as shown in Fig. \ref{fig:body_position_xy_ep_0} and Table. \ref{tab:ep_res_all}. The PINN effectively minimized the physics residuals formulated in Eq. (\ref{eq:loss_function}), (\ref{eq:trans_loss}), (\ref{eq:rot_loss}) as shown in Fig. \ref{fig:physics_loss_ep_1}. While transient spikes in $2^{nd}$ episode loss function occurred during aggressive maneuvers, these residuals rapidly decreased. This confirms that the coupled PINN and controller can dynamically compensate for varying payload offsets regardless of instantaneous trajectory demands.
 
-Operating over the receding temporal window, the network rapidly mapped the unmodeled disturbance torques to spatial mass asymmetry without requiring persistent excitation maneuvers as illustrated in Fig. \ref{fig:body_position_xz_ep_1}, the composite vehicle experienced an immediate lateral drift along the positive X-axis upon takeoff due to the payload asymmetry. However, the geometric controller successfully arrested this transient drift and recovered the trajectory. This rapid stabilization was directly enabled by the PINN continuously converging on the offset parameters (Figs. \ref{fig:offset_x_convergence_ep_1} and \ref{fig:offset_y_convergence_ep_1}) and dynamically feeding them back into the control allocation matrix. While this represents a partial parameter convergence, it proved entirely sufficient to restore system stability. By dynamically identifying and compensating for the majority of the disturbance torque, the updated allocation matrix effectively restored the baseline controller's authority, allowing it to seamlessly reject the remaining unmodeled dynamics without saturating the rotors.
+\begin{figure}[htbp]
+    \centering
+    \begin{tikzpicture}
+        \begin{axis}[
+            width=0.98\columnwidth, 
+            height=6cm,
+            xlabel={Position X-axis (m)},
+            ylabel={Position Y-axis (m)},
+            grid=major,
+            grid style={dashed, gray!30},
+            legend pos=south east,
+            legend style={
+                font=\footnotesize, 
+                cells={anchor=east}
+            },
+            ymin=-6,
+            axis line style={thick},
+            tick style={thick}
+        ]
+            
+            \addplot[
+                color=red, 
+                line width=1.5pt
+            ] table [x=target_x_m, y=target_y_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
+            \addlegendentry{Target Position}
+            
+            \addplot[
+                color=blue!60!black, 
+                line width=1pt, 
+                dashed 
+            ] table [x=actual_x_m, y=actual_y_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_0.csv};
+            \addlegendentry{Actual Position}
+            
+        \end{axis}
+    \end{tikzpicture}
+    \caption{The body is able to follow the desired trajectory without crashing at $1^{st}$ episode}
+    \label{fig:body_position_xy_ep_0}
+\end{figure}
+
+Operating over the receding temporal window, the network rapidly mapped the unmodeled disturbance torques to spatial mass asymmetry without requiring persistent excitation maneuvers as illustrated in Fig. \ref{fig:body_position_xz_ep_1}, the body experienced an immediate lateral drift along the positive X-axis upon takeoff due to the off-center payload. However, designed controller successfully arrested this transient drift and recovered the trajectory. This rapid stabilization was enabled by the PINN periodically converging on the offset parameters (Figs. \ref{fig:offset_x_convergence_ep_1} and \ref{fig:offset_y_convergence_ep_1}) and feeding them back into the control allocation matrix. While this represents a partial parameter convergence, it proved entirely sufficient to restore system stability. By periodically identifying and compensating for the majority of the disturbance torque, the updated allocation matrix effectively restored the baseline control, allowing it to reject the remaining unmodeled dynamics without saturating the rotors.
 
 Furthermore, the network successfully converged upon the payload mass prediction. However, as observed in Fig. (\ref{fig:mass_ep_1}), the mass estimation exhibited cyclical oscillations after the 20-second mark. These periodic fluctuations correspond directly to the dynamic tracking maneuvers, indicating that the network's mass estimation remains coupled to the multi-agent system's changing inertial movements during maneuvers.
 
@@ -344,21 +400,21 @@ Furthermore, the network successfully converged upon the payload mass prediction
     \centering
     \caption{Performance Metrics Across Multiple Episodes}
     \label{tab:ep_res_all}
-    \begin{tabular}{lcccc}
+    \begin{tabular}{lccc}
         \hline
-        \textbf{Quality} & \textbf{Episode 1} & \textbf{Episode 5} & \textbf{Episode 10} & \textbf{Units} \\
+        \textbf{Quality} & \textbf{Ep. 1} & \textbf{Ep. 5} & \textbf{Ep. 10} \\
         \hline
-            RMSE Total Loss & 0.5462 & 1.5972 & 2.2172  & - \\
-            RMSE Data Loss & 0.0023 & 0.0017 & 0.0176 & - \\
-            RMSE Physics Loss & 0.3155 & 1.4201 & 2.042 & - \\
-            Offset X RMSE & 0.0153 & 0.0478 & 0.0518 & meters \\
-            Offset Y RMSE & 0.0470 & 0.0762 & 0.0543 & meters \\ 
-            Trajectory Loss RMSE & 0.4129 & 0.3757 & 0.3643 & meters \\ 
-            Trajectory x-axis RMSE & 0.2443 & 0.1521 & 0.1198 & meters \\ 
-            Trajectory y-axis RMSE & 0.2799 & 0.2946 & 0.2954 & meters \\ 
-            Trajectory z-axis RMSE & 0.1802 & 0.1768 & 0.1763 & meters \\ 
-            Avg PINN Compute Time & 37.59 & 34.96 & 37.18 & ms \\ 
-            Avg PINN Compute Time & 26.6 & 28.6 & 26.9 & Hz \\ 
+            RMSE Total Loss & 0.5462 & 1.5972 & 2.2172 \\
+            RMSE Data Loss & 0.0023 & 0.0017 & 0.0176 \\
+            RMSE Physics Loss & 0.3155 & 1.4201 & 2.042 \\
+            Offset X RMSE (meters) & 0.0153 & 0.0478 & 0.0518 \\
+            Offset Y RMSE (meters) & 0.0470 & 0.0762 & 0.0543 \\ 
+            Trajectory RMSE (meters) & 0.4129 & 0.3757 & 0.3643 \\ 
+            Trajectory x-axis RMSE (meters) & 0.2443 & 0.1521 & 0.1198 \\ 
+            Trajectory y-axis RMSE (meters) & 0.2799 & 0.2946 & 0.2954 \\ 
+            Trajectory z-axis RMSE (meters) & 0.1802 & 0.1768 & 0.1763 \\ 
+            Avg PINN Compute Time (miliseconds) & 37.59 & 34.96 & 37.18 \\ 
+            Avg PINN Compute Time (Hz) & 26.6 & 28.6 & 26.9 \\ 
         \hline
     \end{tabular}
 \end{table}
@@ -391,7 +447,7 @@ Furthermore, the network successfully converged upon the payload mass prediction
     \begin{tikzpicture}
         \begin{axis}[
             width=0.98\columnwidth, 
-            height=6cm,
+            height=5cm,
             xlabel={Time (s)},
             ylabel={Mass (kg)},
             xtick distance=10,
@@ -421,7 +477,7 @@ Furthermore, the network successfully converged upon the payload mass prediction
             
         \end{axis}
     \end{tikzpicture}
-    \caption{Mass prediction over-time at $2^{st}$ episode}
+    \caption{Mass prediction over-time at $2^{st}$ episode. The prediction oscillates in a repeated manner following the figure 8 trajectory.}
     \label{fig:mass_ep_1}
 \end{figure}
 
@@ -430,7 +486,7 @@ Furthermore, the network successfully converged upon the payload mass prediction
     \begin{tikzpicture}
         \begin{axis}[
             width=0.98\columnwidth, 
-            height=6cm,
+            height=5cm,
             xlabel={Time (s)},
             ylabel={Loss},
             xtick distance=10,
@@ -460,7 +516,7 @@ Furthermore, the network successfully converged upon the payload mass prediction
             
         \end{axis}
     \end{tikzpicture}
-    \caption{Physics loss over-time at $2^{st}$ episode}
+    \caption{Physics loss over-time at $2^{st}$ episode. The PINN is able to arrest the sudden loss spikes and the simulation is done without crashing.}
     \label{fig:physics_loss_ep_1}
 \end{figure}
 
@@ -469,7 +525,7 @@ Furthermore, the network successfully converged upon the payload mass prediction
     \begin{tikzpicture}
         \begin{axis}[
             width=0.98\columnwidth, 
-            height=6cm,
+            height=5cm,
             xlabel={Position X-axis (m)},
             ylabel={Position Z-axis (m)},
             grid=major,
@@ -498,7 +554,7 @@ Furthermore, the network successfully converged upon the payload mass prediction
             
         \end{axis}
     \end{tikzpicture}
-    \caption{Body frame position on XZ-axis at $2^{st}$ episode}
+    \caption{Body frame position on XZ-axis at $2^{st}$ episode. The body immediately slides due to the off-center payload. The PINN is able to estimate the offset quickly before it reached the distance error limit.}
     \label{fig:body_position_xz_ep_1}
 \end{figure}
 
@@ -528,18 +584,18 @@ Furthermore, the network successfully converged upon the payload mass prediction
                 color=red, 
                 line width=1.5pt
             ] table [x=time_sec, y=true_offset_x_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
-            \addlegendentry{True}
+            \addlegendentry{True X offset}
             
             \addplot[
                 color=blue!60!black, 
                 line width=1pt, 
                 dashed 
             ] table [x=time_sec, y=pred_offset_x_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
-            \addlegendentry{Predicted}
+            \addlegendentry{Predicted X offset}
             
         \end{axis}
     \end{tikzpicture}
-    \caption{Predicted payload offset over-time on X-axis at $2^{nd}$ episode}
+    \caption{Predicted payload offset over time along the X-axis during the $2^{nd}$ episode. The network's ability to rapidly converge upon the true offset during the initial takeoff transient demonstrates converging parameter estimation without the requirement for persistent excitation.}
     \label{fig:offset_x_convergence_ep_1}
 \end{figure}
 
@@ -568,19 +624,19 @@ Furthermore, the network successfully converged upon the payload mass prediction
             \addplot[
                 color=red, 
                 line width=1.5pt
-            ] table [x=time_sec, y=true_offset_x_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
-            \addlegendentry{True}
+            ] table [x=time_sec, y=true_offset_y_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
+            \addlegendentry{True Y offset}
             
             \addplot[
                 color=blue!60!black, 
                 line width=1pt, 
                 dashed 
-            ] table [x=time_sec, y=pred_offset_x_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
-            \addlegendentry{Predicted}
+            ] table [x=time_sec, y=pred_offset_y_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
+            \addlegendentry{Predicted Y offset}
             
         \end{axis}
     \end{tikzpicture}
-    \caption{Predicted payload offset over-time on Y-axis at $2^{nd}$ episode}
+    \caption{Predicted payload offset over-time on Y-axis at $2^{nd}$ episode. The network's ability to rapidly converge upon the true offset during the initial takeoff transient demonstrates converging parameter estimation without the requirement for persistent excitation.}
     \label{fig:offset_y_convergence_ep_1}
 \end{figure}
 
@@ -619,14 +675,14 @@ Furthermore, the network successfully converged upon the payload mass prediction
             
         \end{axis}
     \end{tikzpicture}
-    \caption{Target position and actual position at $2^{th}$ episode}
+    \caption{Target position and actual position at $2^{nd}$ episode. Even with a sudden drift during takeoff, the controller is able to stabilize and follow the figure 8 trajectory.}
     \label{fig:body_position_xy_ep_1}
 \end{figure}
 
 \section{Conclusion and Future Work}
-This paper presented a novel parameter estimation framework for rigid multi-quadrotor systems utilizing an in-the-loop Physics-Informed Neural Network. By formulating a loss function that incorporates Euler-Lagrange and Euler-Poincaré equations directly on the $SO(3)$ manifold, the network guarantees globally valid rigid-body constraints while eliminating minimal-coordinate gimbal lock. Furthermore, by optimizing over a receding temporal window using continuous gradient descent, the estimator bypasses the strict full-rank data requirements and matrix inversion vulnerabilities inherent to classical adaptive controllers. 
+This paper presented a parameter estimation framework for rigid multi-quadrotor systems utilizing an in-the-loop Physics-Informed Neural Network. By formulating a loss function that incorporates Euler-Lagrange and Euler-Poincaré equations directly on the $SO(3)$ manifold, the network guarantees globally valid rigid-body constraints. Furthermore, the optimization is reached just using a short-term receding horizon.
 
-Simulation results demonstrate that integrating this rank-free estimator directly into the control allocation matrix allows the system to rapidly identify spatial mass asymmetry, arrest transient lateral drift, and maintain stable trajectory tracking without requiring persistent excitation or multi-episode training. Even with partial parameter convergence, the dynamic thrust reallocation effectively restores the baseline controller's authority to reject unmodeled disturbance torques. Future research will extend this methodology to dynamic underactuated slung loads, incorporating coupled pendulum dynamics into the PINN's physical residuals to actively dampen payload oscillations.
+Simulation results demonstrate that integrating this estimator directly into the control allocation matrix allows the system to rapidly identify unmodeled payload mass and the off-center payload shift, arrest transient lateral drift, and maintain stable trajectory tracking without requiring persistent excitation and achieved within the first episode. Even with partial parameter convergence, the dynamic thrust reallocation effectively restores the baseline controller's authority to reject unmodeled disturbance torques. Future research will extend this methodology to dynamic underactuated slung loads, incorporating coupled pendulum dynamics into the PINN's physical residuals to actively dampen payload oscillations.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
