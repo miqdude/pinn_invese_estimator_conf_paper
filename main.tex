@@ -15,14 +15,14 @@
 \usepackage{amsmath}
 \pgfplotsset{compat=1.18} 
 
-\title{PINN Static Payload}
+\title{Adaptive Control of Asymmetric Payloads in Rigid Multi-Quadrotor Systems Using PINNs}
 
 \author{
-\IEEEauthorblockN{Miqdad Abdurrahman, Hilton Tnunay, and Anggera Bayuwindra}
+\IEEEauthorblockN{Miqdad Abdurrahman, Anggera Bayuwindra, Hilton Tnunay}
 \IEEEauthorblockA{\textit{Sekolah Teknik Elektro dan Informatika (STEI)} \\
 \textit{Institut Teknologi Bandung (ITB)}\\
 Bandung, Indonesia \\
-Email: 23224011@mahasiswa.itb.ac.id, hilton@itb.ac.id, anggera@itb.ac.id}
+Email: 23224011@mahasiswa.itb.ac.id, bayuwindra@itb.ac.id, hilton.tnunay@itb.ac.id}
 }
 
 \begin{document}
@@ -30,7 +30,7 @@ Email: 23224011@mahasiswa.itb.ac.id, hilton@itb.ac.id, anggera@itb.ac.id}
 \maketitle
 
 \begin{abstract}
-Cooperative multi-quadrotor systems rigidly attached to a common frame excel at heavy-lift transportation. However, uncertain payload Centers of Gravity (CoG) introduce continuous disturbance torques, degrading geometric controller performance and causing instability. This paper introduces an in-the-loop Physics-Informed Neural Network (PINN) parameter estimation framework to dynamically identify unknown CoG shifts in-flight. To avoid gimbal lock and ensure global validity, the PINN formulates translational and rotational physics residuals using Euler-Lagrange and Euler-Poincaré equations directly on the Special Orthogonal group, $SO(3)$. These estimated parameters continuously update the control allocation matrix, enabling adaptive thrust reallocation without physically canted hardware. Simulations at 240 Hz confirm the PINN estimator rapidly converges, rejects asymmetric disturbance torques, and restores trajectory tracking accuracy.
+Cooperative multi-quadrotor systems rigidly attached to a common frame excel at heavy-lift transportation. However, uncertain payload Centers of Gravity (CoG) introduce continuous disturbance torques, degrading geometric controller performance and causing severe lateral drift. This paper introduces an in-the-loop Physics-Informed Neural Network (PINN) parameter estimation framework to dynamically identify unknown CoG shifts in-flight. Unlike classical batch least-squares or Concurrent Learning frameworks that require persistent excitation or mathematically full-rank history stacks, the proposed PINN utilizes continuous gradient descent over a short-term receding horizon. To avoid artificial coordinate singularities, the network formulates translational and rotational physics residuals using Euler-Lagrange and Euler-Poincaré equations directly on the Special Orthogonal group, $SO(3)$. The estimated parameters continuously update the control allocation matrix, enabling adaptive thrust reallocation. Simulations at 240 Hz confirm that the PINN estimator rapidly converges, arrests transient lateral drift, and successfully restores trajectory tracking stability.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -48,6 +48,8 @@ Cooperative multi-quadrotor systems provide scalable, high-capacity solutions fo
 Recent mitigations include structural hardware optimization—such as physically canting rotors to artificially increase yaw authority \cite{tan_cooperative_2018}—and algorithmic adaptation. While digital twin (DT) model predictive control \cite{farid_digital_2025} and Concurrent Learning \cite{lee_concurrent_2025} effectively adapt to unknown parameters, they often suffer from computational latency or require persistent excitation during vulnerable transient phases.
 
 To mitigate these unmodeled disturbances, recent literature has explored online parameter estimation and advanced control architectures. Classical approaches, such as the batch and recursive least-squares algorithms utilized in \cite{mellinger2013trajectory}, require strict persistent excitation to prevent regressor matrix singularities. To overcome the need for continuous excitation, Concurrent Learning (CL) frameworks \cite{lee_concurrent_2025} have been introduced. While CL successfully adapts to unknown parameters, convergence is mathematically guaranteed only when the recorded history stack achieves full column rank. This strict linear independence requirement leaves the multi-agent system (MAS) highly vulnerable to lateral drift during the initial transient flight phase. Alternatively, computationally intensive frameworks leveraging Model Predictive Control (MPC) synchronized with Digital Twins (DT) \cite{farid_digital_2025} have been proposed to estimate the state of irregular payloads. However, this architecture inherently introduces network and computational latency between the physical controller and the DT simulator, degrading the real-time responsiveness required for aggressive stabilization.
+
+\footnote{The source code for the PINN estimator and simulation environment is available at: \url{https://github.com/miqdude/pinn_invese_estimator_conf_repo}}
 
 \subsection{Contributions}
 To bridge the gap between rapid parameter estimation and adaptive control, we introduce a novel framework for rigid multi-quadrotor systems. The primary contributions of this work are:
@@ -75,6 +77,7 @@ In the context of aerial robotics or control system in generic, PINNs are highly
 
 \section{System Description}
 \subsection{System Modeling}
+
 We define the world frame as $\mathcal{W}$ and the body frame as $\mathcal{B}$, position is $\mathbf{r} = [x, y, z]^T$, and orientation is defined by Euler angles $\mathbf{\eta} = (\phi, \theta, \psi)$:
 \begin{equation}
     \mathcal{W} = [x_{\mathcal{W}}, y_{\mathcal{W}}, z_{\mathcal{W}}]
@@ -83,12 +86,12 @@ We define the world frame as $\mathcal{W}$ and the body frame as $\mathcal{B}$, 
     \mathcal{B} = [x_{\mathcal{B}}, y_{\mathcal{B}}, z_{\mathcal{B}}]    
 \end{equation}
 
-\begin{figure}[htbp] 
-    \centering 
-    \includegraphics[width=0.3\textwidth]{images/pinns_architecture.png} 
-    \caption{Architecture of PINNs and the Multi-agent centralized control systems}
-    \label{fig:pinns_and_control_diagram} 
-\end{figure}
+% \begin{figure}[htbp] 
+%     \centering 
+%     \includegraphics[width=0.3\textwidth]{images/pinns_architecture.png} 
+%     \caption{Architecture of PINNs and the Multi-agent centralized control systems}
+%     \label{fig:pinns_and_control_diagram} 
+% \end{figure}
 
 The MAS we implement is a centeralized control derived from \cite{mellinger2013trajectory} commanding the drones by giving the control input $\boldsymbol{\tau} = [F_B, M_{xB}, M_{yB}, M_{zB}]^T$ relates to individual thrust inputs $\mathbf{u} = [F_1, F_2, F_3, F_4]^T$ via the allocation matrix $A \in \mathbb{R}^{4 \times 4}$:
 
@@ -104,7 +107,9 @@ The MAS we implement is a centeralized control derived from \cite{mellinger2013t
         c_1 & c_2 & c_3 & c_4
     \end{bmatrix}
 \end{equation}
+
 The rows of $A$ denote total thrust, roll moment, pitch moment, and yaw reactive torque, respectively. Required individual thrusts are derived by inversion:
+
 \begin{equation}
     \mathbf{u} = A^{-1}
     \begin{bmatrix} F_B \ M_{xB} \ M_{yB} \ M_{zB}
@@ -113,12 +118,15 @@ The rows of $A$ denote total thrust, roll moment, pitch moment, and yaw reactive
 
 \subsection{Centralized Control Design}
 Based on \cite{mellinger2013trajectory}, the controller separates position and attitude tracking. Position and velocity errors define commanded acceleration $\mathbf{\ddot{r}}_{cmd}$:
+
 \begin{equation}
     \mathbf{e}_p = \mathbf{r}_{des} - \mathbf{r}, \quad \mathbf{e}_v = \mathbf{\dot{r}}_{des} - \mathbf{\dot{r}}
 \end{equation}
 \begin{equation}\mathbf{\ddot{r}}_{cmd} = K_p \mathbf{e}_p + K_d \mathbf{e}_v + \mathbf{\ddot{r}}_{\text{ff}}
 \end{equation}
+
 Desired roll ($\phi^{des}$), pitch ($\theta^{des}$), and total thrust ($F_B^{des}$) are extracted via small-angle approximation:
+
 \begin{equation}
     \begin{split}
         \phi^{des} &= \frac{1}{g} (\ddot{r}^{des}_{x} \sin \psi_T - \ddot{r}^{des}_{y} \cos \psi_T) \\
@@ -126,7 +134,9 @@ Desired roll ($\phi^{des}$), pitch ($\theta^{des}$), and total thrust ($F_B^{des
         F_B^{des} &= m(\ddot{r}^{des}_{z} + g)
     \end{split}
 \end{equation}
+
 Inner-loop desired moments $\mathbf{M}_B^{des}$ regulate orientation against angular velocities $(p, q, r)$:
+
 \begin{equation}
     \begin{split}        
         M_{xB}^{des} &= k_{p, \phi} (\phi^{des} - \phi) + k_{d, \phi} (p^{des} - p) \\
@@ -137,6 +147,7 @@ Inner-loop desired moments $\mathbf{M}_B^{des}$ regulate orientation against ang
 
 \subsection{Dynamic Thrust Allocation}
 An asymmetric payload shifts the CoG, altering the effective moment arms. Let $\hat{\mathbf{d}}_{\text{cog}} = [\hat{x}_{\text{cog}}, \hat{y}_{\text{cog}}]^T$ denote the estimated offset. Redefining the lever arms as $\Delta x_i = x_i - \hat{x}_{\text{cog}}$ and $\Delta y_i = y_i - \hat{y}_{\text{cog}}$, the allocation matrix adapts dynamically:
+
 \begin{equation}
     A_{\text{final}} = \begin{bmatrix}
     1 & 1 & 1 & 1 \\
@@ -145,7 +156,9 @@ An asymmetric payload shifts the CoG, altering the effective moment arms. Let $\
     c_1 & c_2 & c_3 & c_4
     \end{bmatrix} \label{eq:allocation_matrix}
 \end{equation}
+
 Control inputs are computed via the Moore-Penrose pseudo-inverse to handle transient rank deficiencies:
+
 \begin{equation}
     \mathbf{u} = A_{\text{final}}^{+} \boldsymbol{\tau}\label{eq:final_u}
 \end{equation}
@@ -316,10 +329,136 @@ The PINN utilizes a receding horizon buffer of $W = 50$ transitions, executing 3
 \section{Results and Discussion}
 
 \subsection{Parameter Convergence and Estimation}
-The PINN effectively minimized the physical rotational residuals defined using the Euler-Poincaré equations in the loss function. The network consistently identified the static CoG offsets ($d_{x, cog}, d_{y, cog}$) within the initial seconds of flight, mapping disturbance torques to spatial asymmetry without requiring persistent excitation maneuvers. In the second episode the PINN was able to estimate the offset, from \ref{fig:body_position_xz_ep_1} the body was immediatly slides to the positive X position right after taking off. The controller was able to correct the sudden slide because the PINN was gradually update it's estimation.
 
+Across 10 distinct simulation episodes, each initialized with newly randomized payload offset parameters, the proposed framework maintained continuous stability without a single failure or crash. Notably, optimal tracking performance was achieved during the very first episode, demonstrating that the system possesses robust, immediate adaptation capabilities and does not rely on multi-episode historical training to function. The PINN effectively minimized the physics residuals formulated in Eqs. (\ref{eq:loss_function}, \ref{eq:trans_loss}, \ref{eq:rot_loss}) as shown in Fig. \ref{fig:physics_loss_ep_1}. While transient spikes in the loss function occurred during aggressive maneuvers, these residuals rapidly decreased. This confirms that the coupled PINN and controller can dynamically compensate for varying payload offsets regardless of instantaneous trajectory demands.
 
+Operating over the receding temporal window, the network rapidly mapped the unmodeled disturbance torques to spatial mass asymmetry without requiring persistent excitation maneuvers as illustrated in Fig. \ref{fig:body_position_xz_ep_1}, the composite vehicle experienced an immediate lateral drift along the positive X-axis upon takeoff due to the payload asymmetry. However, the geometric controller successfully arrested this transient drift and recovered the trajectory. This rapid stabilization was directly enabled by the PINN continuously converging on the offset parameters (Figs. \ref{fig:offset_x_convergence_ep_1} and \ref{fig:offset_y_convergence_ep_1}) and dynamically feeding them back into the control allocation matrix. While this represents a partial parameter convergence, it proved entirely sufficient to restore system stability. By dynamically identifying and compensating for the majority of the disturbance torque, the updated allocation matrix effectively restored the baseline controller's authority, allowing it to seamlessly reject the remaining unmodeled dynamics without saturating the rotors.
 
+Furthermore, the network successfully converged upon the payload mass prediction. However, as observed in Fig. (\ref{fig:mass_ep_1}), the mass estimation exhibited cyclical oscillations after the 20-second mark. These periodic fluctuations correspond directly to the dynamic tracking maneuvers, indicating that the network's mass estimation remains coupled to the multi-agent system's changing inertial movements during maneuvers.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Performance Metrics Across Multiple Episodes}
+    \label{tab:ep_res_all}
+    \begin{tabular}{lcccc}
+        \hline
+        \textbf{Quality} & \textbf{Episode 1} & \textbf{Episode 5} & \textbf{Episode 10} & \textbf{Units} \\
+        \hline
+            RMSE Total Loss & 0.5462 & 1.5972 & 2.2172  & - \\
+            RMSE Data Loss & 0.0023 & 0.0017 & 0.0176 & - \\
+            RMSE Physics Loss & 0.3155 & 1.4201 & 2.042 & - \\
+            Offset X RMSE & 0.0153 & 0.0478 & 0.0518 & meters \\
+            Offset Y RMSE & 0.0470 & 0.0762 & 0.0543 & meters \\ 
+            Trajectory Loss RMSE & 0.4129 & 0.3757 & 0.3643 & meters \\ 
+            Trajectory x-axis RMSE & 0.2443 & 0.1521 & 0.1198 & meters \\ 
+            Trajectory y-axis RMSE & 0.2799 & 0.2946 & 0.2954 & meters \\ 
+            Trajectory z-axis RMSE & 0.1802 & 0.1768 & 0.1763 & meters \\ 
+            Avg PINN Compute Time & 37.59 & 34.96 & 37.18 & ms \\ 
+            Avg PINN Compute Time & 26.6 & 28.6 & 26.9 & Hz \\ 
+        \hline
+    \end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+    \centering
+    \caption{$2^{nd}$ Episode Results}
+    \label{tab:ep_res_1}
+    \begin{tabular}{lcc}
+        \hline
+        \textbf{Quality} & \textbf{Value} & \textbf{Unit} \\
+        \hline
+            RMSE Total Loss & 0.6862 & - \\
+            RMSE Data Loss & 0.0016 & - \\
+            RMSE Physics Loss & 0.5230 & - \\
+            Offset X RMSE & 0.1564 & meters \\
+            Offset Y RMSE & 0.0901 & meters \\
+            Trajectory Loss RMSE & 0.4129 & meters \\ 
+            Trajectory x-axis RMSE & 0.2443 & meters \\ 
+            Trajectory y-axis RMSE & 0.2799 & meters \\ 
+            Trajectory z-axis RMSE & 0.1802 & meters \\ 
+            Avg PINN Compute Time & 37.59 & ms \\ 
+            Avg PINN Compute Time & 26.6 & Hz \\ 
+        \hline
+    \end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+    \centering
+    \begin{tikzpicture}
+        \begin{axis}[
+            width=0.98\columnwidth, 
+            height=6cm,
+            xlabel={Time (s)},
+            ylabel={Mass (kg)},
+            xtick distance=10,
+            grid=major,
+            grid style={dashed, gray!30},
+            legend pos=south east,
+            legend style={
+                font=\footnotesize, 
+                cells={anchor=east}
+            },
+            axis line style={thick},
+            tick style={thick}
+        ]
+            
+            \addplot[
+                color=red, 
+                line width=1.5pt
+            ] table [x=time_sec, y=true_mass_kg, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
+            \addlegendentry{True total mass}
+            
+            \addplot[
+                color=blue!60!black, 
+                line width=1pt, 
+                dashed 
+            ] table [x=time_sec, y=pred_mass_kg, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
+            \addlegendentry{Predicted mass}
+            
+        \end{axis}
+    \end{tikzpicture}
+    \caption{Mass prediction over-time at $2^{st}$ episode}
+    \label{fig:mass_ep_1}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \begin{tikzpicture}
+        \begin{axis}[
+            width=0.98\columnwidth, 
+            height=6cm,
+            xlabel={Time (s)},
+            ylabel={Loss},
+            xtick distance=10,
+            grid=major,
+            grid style={dashed, gray!30},
+            legend pos=north east,
+            legend style={
+                font=\footnotesize, 
+                cells={anchor=east}
+            },
+            axis line style={thick},
+            tick style={thick}
+        ]
+            
+            \addplot[
+                color=red, 
+                line width=1.5pt
+            ] table [x=time_sec, y=physics_loss, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
+            \addlegendentry{Physics loss}
+            
+            % \addplot[
+            %     color=blue!60!black, 
+            %     line width=1pt, 
+            %     dashed 
+            % ] table [x=actual_x_m, y=actual_z_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
+            % \addlegendentry{Actual Position}
+            
+        \end{axis}
+    \end{tikzpicture}
+    \caption{Physics loss over-time at $2^{st}$ episode}
+    \label{fig:physics_loss_ep_1}
+\end{figure}
 
 \begin{figure}[htbp]
     \centering
@@ -369,7 +508,7 @@ The PINN effectively minimized the physical rotational residuals defined using t
             ylabel={Offset (m)},
             grid=major,
             grid style={dashed, gray!30},
-            legend pos=south east,
+            legend pos=north east,
             legend style={
                 font=\footnotesize, 
                 cells={anchor=east}
@@ -400,7 +539,6 @@ The PINN effectively minimized the physical rotational residuals defined using t
     \label{fig:offset_x_convergence_ep_1}
 \end{figure}
 
-
 \begin{figure}[htbp]
     \centering
     \begin{tikzpicture}
@@ -411,7 +549,7 @@ The PINN effectively minimized the physical rotational residuals defined using t
             ylabel={Offset (m)},
             grid=major,
             grid style={dashed, gray!30},
-            legend pos=south east,
+            legend pos=north east,
             legend style={
                 font=\footnotesize, 
                 cells={anchor=east}
@@ -426,141 +564,20 @@ The PINN effectively minimized the physical rotational residuals defined using t
             \addplot[
                 color=red, 
                 line width=1.5pt
-            ] table [x=time_sec, y=true_offset_y_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
+            ] table [x=time_sec, y=true_offset_x_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
             \addlegendentry{True}
             
             \addplot[
                 color=blue!60!black, 
                 line width=1pt, 
                 dashed 
-            ] table [x=time_sec, y=pred_offset_y_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
+            ] table [x=time_sec, y=pred_offset_x_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
             \addlegendentry{Predicted}
             
         \end{axis}
     \end{tikzpicture}
     \caption{Predicted payload offset over-time on Y-axis at $2^{nd}$ episode}
     \label{fig:offset_y_convergence_ep_1}
-\end{figure}
-
-\subsection{Disturbance Rejection and Trajectory Tracking}
-In baseline scenarios lacking PINN compensation, the $1.0$ kg asymmetric payload induced parasitic torques that violated the $e_{max} = 2.0$ m threshold, causing failure. Conversely, the PINN-compensated geometric controller adaptively reallocated thrust distribution. By accounting for the CoG shift, the $SE(3)$ controller maintained steady-state hover and executed dynamic trajectories, maintaining Root Mean Square Errors (RMSE) well within safety bounds.
-
-\begin{figure}[htbp]
-    \centering
-    \begin{tikzpicture}
-        \begin{axis}[
-            width=0.98\columnwidth, 
-            height=4cm,
-            xlabel={Time (s)},
-            ylabel={Offset (m)},
-            grid=major,
-            grid style={dashed, gray!30},
-            legend pos=south east,
-            legend style={
-                font=\footnotesize, 
-                cells={anchor=east}
-            },
-            xmin=-5,xmax=90,
-            xtick distance=10,
-            axis line style={thick},
-            tick style={thick}
-        ]
-            
-            \addplot[
-                color=red, 
-                line width=1.5pt
-            ] table [x=time_sec, y=true_mass_kg, col sep=comma] {data/flight_data_figure_eight_3d_ep_9.csv};
-            \addlegendentry{True}
-            
-            \addplot[
-                color=blue!60!black, 
-                line width=1pt, 
-                dashed 
-            ] table [x=time_sec, y=pred_mass_kg, col sep=comma] {data/flight_data_figure_eight_3d_ep_9.csv};
-            \addlegendentry{Predicted}
-            
-        \end{axis}
-    \end{tikzpicture}
-    \caption{Predicted system mass at $10^{th}$ episode} \label{fig:mass_convergence}
-\end{figure}
-
-\begin{figure}[htbp]
-    \centering
-    \begin{tikzpicture}
-        \begin{axis}[
-            width=0.98\columnwidth, 
-            height=4cm,
-            xlabel={Time (s)},
-            ylabel={Offset (m)},
-            grid=major,
-            grid style={dashed, gray!30},
-            legend pos=south east,
-            legend style={
-                font=\footnotesize, 
-                cells={anchor=east}
-            },
-            xmin=-5,xmax=90,
-            ymin=-.6,
-            xtick distance=10,
-            axis line style={thick},
-            tick style={thick}
-        ]
-            
-            \addplot[
-                color=red, 
-                line width=1.5pt
-            ] table [x=time_sec, y=true_offset_y_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_9.csv};
-            \addlegendentry{True}
-            
-            \addplot[
-                color=blue!60!black, 
-                line width=1pt, 
-                dashed 
-            ] table [x=time_sec, y=pred_offset_y_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_9.csv};
-            \addlegendentry{Predicted}
-            
-        \end{axis}
-    \end{tikzpicture}
-    \caption{Body frame position on XY-axis at $10^{th}$ episode}
-    \label{fig:offset_y_convergence}
-\end{figure}
-
-\begin{figure}[htbp]
-    \centering
-    \begin{tikzpicture}
-        \begin{axis}[
-            width=0.98\columnwidth, 
-            height=6cm,
-            xlabel={Position X-axis (m)},
-            ylabel={Position Z-axis (m)},
-            grid=major,
-            grid style={dashed, gray!30},
-            legend pos=south east,
-            legend style={
-                font=\footnotesize, 
-                cells={anchor=east}
-            },
-            axis line style={thick},
-            tick style={thick}
-        ]
-            
-            \addplot[
-                color=red, 
-                line width=1.5pt
-            ] table [x=target_x_m, y=target_z_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_9.csv};
-            \addlegendentry{Target Position}
-            
-            \addplot[
-                color=blue!60!black, 
-                line width=1pt, 
-                dashed 
-            ] table [x=actual_x_m, y=actual_z_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_9.csv};
-            \addlegendentry{Actual Position}
-            
-        \end{axis}
-    \end{tikzpicture}
-    \caption{Body frame position on XZ-axis at $10^{th}$ episode}
-    \label{fig:body_position_xz}
 \end{figure}
 
 \begin{figure}[htbp]
@@ -578,6 +595,7 @@ In baseline scenarios lacking PINN compensation, the $1.0$ kg asymmetric payload
                 font=\footnotesize, 
                 cells={anchor=east}
             },
+            ymin=-6,
             axis line style={thick},
             tick style={thick}
         ]
@@ -585,24 +603,26 @@ In baseline scenarios lacking PINN compensation, the $1.0$ kg asymmetric payload
             \addplot[
                 color=red, 
                 line width=1.5pt
-            ] table [x=target_x_m, y=target_y_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_9.csv};
+            ] table [x=target_x_m, y=target_y_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
             \addlegendentry{Target Position}
             
             \addplot[
                 color=blue!60!black, 
                 line width=1pt, 
                 dashed 
-            ] table [x=actual_x_m, y=actual_y_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_9.csv};
+            ] table [x=actual_x_m, y=actual_y_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
             \addlegendentry{Actual Position}
             
         \end{axis}
     \end{tikzpicture}
-    \caption{Target position and actual position at $10^{th}$ episode}
-    \label{fig:body_position_xy}
+    \caption{Target position and actual position at $2^{th}$ episode}
+    \label{fig:body_position_xy_ep_1}
 \end{figure}
 
 \section{Conclusion and Future Work}
-This paper presented a parameter estimation framework for rigid multi-quadrotor systems utilizing an in-the-loop PINN. By formulating rotational physics losses on the $SO(3)$ manifold via Euler-Poincaré equations, the network avoids gimbal lock and ensures mathematically robust convergence. Integrating this estimator into the geometric allocation matrix allows the system to reject unmodeled disturbance torques and maintain stable tracking without physically canted hardware. Future research will extend this methodology to dynamic underactuated slung loads, incorporating coupled pendulum dynamics into the PINN's physical residuals to dampen dynamic oscillations.
+This paper presented a novel parameter estimation framework for rigid multi-quadrotor systems utilizing an in-the-loop Physics-Informed Neural Network. By formulating a loss function that incorporates Euler-Lagrange and Euler-Poincaré equations directly on the $SO(3)$ manifold, the network guarantees globally valid rigid-body constraints while eliminating minimal-coordinate gimbal lock. Furthermore, by optimizing over a receding temporal window using continuous gradient descent, the estimator bypasses the strict full-rank data requirements and matrix inversion vulnerabilities inherent to classical adaptive controllers. 
+
+Simulation results demonstrate that integrating this rank-free estimator directly into the control allocation matrix allows the system to rapidly identify spatial mass asymmetry, arrest transient lateral drift, and maintain stable trajectory tracking without requiring persistent excitation or multi-episode training. Even with partial parameter convergence, the dynamic thrust reallocation effectively restores the baseline controller's authority to reject unmodeled disturbance torques. Future research will extend this methodology to dynamic underactuated slung loads, incorporating coupled pendulum dynamics into the PINN's physical residuals to actively dampen payload oscillations.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
