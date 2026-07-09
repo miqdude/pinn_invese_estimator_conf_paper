@@ -52,9 +52,9 @@ To mitigate these unmodeled disturbances, recent literature has explored online 
 \subsection{Contributions}
 To bridge the gap between rapid parameter estimation and adaptive control, we introduce a novel framework for rigid multi-quadrotor systems. The primary contributions of this work are:
 \begin{enumerate}
-    \item \textbf{Rank-Free PINN Estimation:} We develop an in-the-loop PINN that dynamically identifies the unknown CoG shift of an asymmetric payload utilizing a short-term receding horizon. By leveraging continuous gradient descent rather than block matrix inversion, the estimator bypasses the strict full-rank data requirements of classical Concurrent Learning, enabling rapid parameter convergence without relying on highly-variant persistent excitation.
-    \item \textbf{Singularity-Free Manifold Optimization:} The network’s loss function embeds translational Euler-Lagrange and rotational Euler-Poincaré equations directly on the $SO(3)$ manifold. This energy-based formulation ensures globally valid 6-DOF physics constraints while entirely eliminating the artificial singularities (gimbal lock) inherent to minimal coordinate representations.
-    \item \textbf{Dynamic Control Integration:} The continuously updated CoG parameters are fed directly into the geometric control allocation matrix. This closed-loop integration empowers the composite rigid body to adaptively reallocate thrust and reject disturbance torques during flight, restoring tracking stability without requiring physically canted hardware.
+    \item \textbf{Rank-Free PINN Estimation:} We develop an in-the-loop PINN that dynamically identifies the unknown payload shift by utilizing a short-term receding horizon removing dependency of highly-variant persistent excitation.
+    \item \textbf{Singularity-Free Manifold Optimization:} The network’s loss function embeds energy-based translational Euler-Lagrange and rotational Euler-Poincaré equations directly on the $SO(3)$. 
+    \item \textbf{Dynamic Control Integration:} The continuously updated offset parameters are fed directly into the control allocation matrix to immediately restore the tracking stability.
 \end{enumerate}
 
 \section{Preliminaries}
@@ -241,9 +241,12 @@ Finally, the rotational loss penalizes the mean squared error of this residual, 
 \section{Simulation and Results}
 
 \subsection{Simulation Environment and Setup}
-Simulations were executed in PyBullet at $\Delta t = 1/240$ s (240 Hz). Quadrotor thrust is capped at 50 N, and gravity is $g = 9.81$ m/s$^2$. The unladen frame mass is $m_f = 6.8$ kg, carrying a $m_p = 1.0$ kg payload ($m_{tot} = 7.8$ kg). Each 60-second episode initializes with a uniformly sampled CoG offset:
+
+The composite vehicle consists of four homogeneous quadrotors rigidly attached to the corners of a $1 \times 1$ m central structural frame. The payload is modeled as a small $125 \times 10^{-6}$ m$^3$ box positioned near the geometric center, subject to a spatial offset as described in Eq.~(\ref{eq:payload_random}). Simulations were executed within the PyBullet physics engine using a discrete time step of $\Delta t = 1/240$ s (240 Hz). Individual quadrotor thrust is saturated at a maximum of 50 N, and gravitational acceleration is set to $g = 9.81$ m/s$^2$. The unladen structure possesses a baseline mass of $m_f = 6.8$ kg and carries a payload of $m_p = 1.0$ kg, resulting in a total composite system mass of $m_{tot} = 7.8$ kg.
+
 \begin{equation}
     d_{x, cog}, d_{y, cog} \sim \mathcal{U}(-0.15, 0.15) \text{ meters}
+    \label{eq:payload_random}
 \end{equation}
 Flights exceeding a 2.0 m Euclidean distance error are terminated.
 
@@ -264,8 +267,8 @@ The Software-in-the-Loop (SITL) architecture interleaves a 240 Hz geometric atti
 \State Init current episode $e_{now}$
 
 \While{$e_{now} \le E_{max}$}
-    \State Initi quadrotor states $\mathbf{x}_0$
-    \State Initi PINN $\mathcal{N}_\theta$ with random weights $\theta$
+    \State Init quadrotor states $\mathbf{x}_0$
+    \State Init PINN $\mathcal{N}_\theta$ with random weights $\theta$
     \State Simulation time $t \gets 0$
     \State Step counter $k \gets 0$
 
@@ -317,6 +320,9 @@ The PINN utilizes a receding horizon buffer of $W = 50$ transitions, executing 3
         PINN Window Size & $W$ & 50 steps \\
         Optimization Frequency & $N_{opt}$ & 5 steps \\
         Gradient Steps per Cycle & $S_{grad}$ & 3 steps \\
+        Lambda Data & $\lambda_{1}$ & 100 \\
+        Lambda Translational & $\lambda_{2}$ & 1 \\
+        Lambda Rotational & $\lambda_{3}$ & 1 \\
         \hline
     \end{tabular}
 \end{table}
