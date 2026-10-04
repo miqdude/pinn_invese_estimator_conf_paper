@@ -2,24 +2,10 @@
 \subsection{System Modeling}
 
 % Coba definisikan bentuk setup quadrotornya
+% jelasin setup single dronenya
 
-
-We define the world frame as $\mathcal{W}$ and the body frame as $\mathcal{B}$, position is $\mathbf{r} = [x, y, z]^T$, and orientation is defined by Euler angles $\mathbf{\eta} = (\phi, \theta, \psi)$:
-
-\begin{equation}
-    \mathcal{W} = [x_{\mathcal{W}}, y_{\mathcal{W}}, z_{\mathcal{W}}],
-\end{equation}
-
-\begin{equation}
-    \mathcal{B} = [x_{\mathcal{B}}, y_{\mathcal{B}}, z_{\mathcal{B}}].
-\end{equation}
-
-% \begin{figure}[htbp] 
-%     \centering 
-%     \includegraphics[width=0.3\textwidth]{images/pinns_architecture.png} 
-%     \caption{Architecture of PINNs and the Multi-agent centralized control systems}
-%     \label{fig:pinns_and_control_diagram} 
-% \end{figure}
+%  Jelasin setup multi agent
+The system or we called it frame comprises of four 1.5 kg quadrotors rigidly attached at a distance of XX meters from the geometric center of a 0.8 kg board (dimensions XX), as illustrated in Fig. XXX. We modelled each quadrotor as ideal actuator where the thrusts command are applied directy to the simulator engine. We define an inertial world frame $\mathcal{W}$ with an upward-pointing Z-axis, and a primary body frame $\mathcal{B}$ located at the board's center. The axes of $\mathcal{B}$ align perfectly with $\mathcal{W}$ when the system is level and unrotated. Each quadrotor maintains its own local coordinate frame, which remains strictly parallel to $\mathcal{B}$ and is offset purely by a spatial translation in the XY plane. The overall system's position in $\mathcal{W}$ is denoted by $\mathbf{r} = [x, y, z]^T$, and its orientation is parameterized by Euler angles $\mathbf{\eta} = [\phi, \theta, \psi]^T$.
 
 The MAS employs a centralized control architecture derived from \cite{mellinger2013trajectory}. The composite rigid body is commanded via a unified control wrench $\boldsymbol{\tau}$, defined as:
 
@@ -27,10 +13,10 @@ The MAS employs a centralized control architecture derived from \cite{mellinger2
     \boldsymbol{\tau} = [F_B, M_{xB}, M_{yB}, M_{zB}]^T,
 \end{equation}
 
-\noindent where $F_B$ represents the total collective thrust acting along the inertial $z$-axis, while $M_{xB}$, $M_{yB}$, and $M_{zB}$ denote the respective desired roll, pitch, and yaw control moments applied about the body frame which relates to individual quadrotor thrust inputs $\mathbf{u} = [F_1, F_2, F_3, F_4]^T$ via the allocation matrix $A \in \mathbb{R}^{4 \times 4}$:
+\noindent where $F_B$ represents the total collective thrust acting along the frame's $z$-axis, while $M_{xB}$, $M_{yB}$, and $M_{zB}$ denote the respective desired roll, pitch, and yaw control moments applied about the frame which relates to individual quadrotor thrust inputs $\mathbf{u} = [F_1, F_2, F_3, F_4]^T$ via the allocation matrix $A \in \mathbb{R}^{4 \times 4}$:
 
 \begin{equation} \label{eq:tau}
-    \boldsymbol{\tau} = [F_B, M_{xB}, M_{yB}, M_{zB}]^T = A \mathbf{u},
+    \boldsymbol{\tau} = A \mathbf{u},
 \end{equation}
 \begin{equation}
     A =
@@ -42,13 +28,7 @@ The MAS employs a centralized control architecture derived from \cite{mellinger2
     \end{bmatrix}.
 \end{equation}
 
-The rows of $A$ denote total thrust, roll moment, pitch moment, and yaw reactive torque, respectively. Required individual thrusts are derived by inversion:
-
-\begin{equation}
-    \mathbf{u} = A^{-1}
-    \begin{bmatrix} F_B \ M_{xB} \ M_{yB} \ M_{zB}
-    \end{bmatrix}\label{eq:inverse_allocation}.
-\end{equation}
+The rows of $A$ denote total thrust, roll moment, pitch moment, and yaw reactive torque, respectively.
 
 \subsection{Dynamic Thrust Allocation}
 A payload shifts from the body central frame, altering the effective moment arms. Let $\hat{\mathbf{d}}_{\text{cog}} = [\hat{x}_{\text{cog}}, \hat{y}_{\text{cog}}]^T$ denote the estimated offset. Redefining the lever arms as $\Delta x_i = x_i - \hat{x}_{\text{cog}}$ and $\Delta y_i = y_i - \hat{y}_{\text{cog}}$, the allocation matrix adapts dynamically:
@@ -66,4 +46,34 @@ Control inputs are computed via the Moore-Penrose pseudo-inverse to handle trans
 
 \begin{equation}
     \mathbf{u} = A_{\text{final}}^{+} \boldsymbol{\tau}. \label{eq:final_u}
+\end{equation}
+
+\subsection{Centralized Control Design}
+Based on \cite{mellinger2013trajectory}, the controller separates position and attitude tracking. Position and velocity errors define commanded acceleration $\mathbf{\ddot{r}}_{cmd}$:
+
+\begin{equation}
+    \mathbf{e}_p = \mathbf{r}_{des} - \mathbf{r}, \quad \mathbf{e}_v = \mathbf{\dot{r}}_{des} - \mathbf{\dot{r}},
+\end{equation}
+
+\begin{equation}\mathbf{\ddot{r}}_{cmd} = K_p \mathbf{e}_p + K_d \mathbf{e}_v + \mathbf{\ddot{r}}_{\text{ff}}.
+\end{equation}
+
+Desired roll ($\phi^{des}$), pitch ($\theta^{des}$), and total thrust ($F_B^{des}$) are extracted via small-angle approximation:
+
+\begin{equation}
+    \begin{split}
+        \phi^{des} &= \frac{1}{g} (\ddot{r}^{des}_{x} \sin \psi_T - \ddot{r}^{des}_{y} \cos \psi_T), \\
+        \theta^{des} &= \frac{1}{g} (\ddot{r}^{des}_{y} \cos \psi_T + \ddot{r}^{des}_{y} \sin \psi_T), \\
+        F_B^{des} &= m(\ddot{r}^{des}_{z} + g).
+    \end{split}
+\end{equation}
+
+Inner-loop desired moments $\mathbf{M}_B^{des}$ regulate orientation against angular velocities $(p, q, r)$:
+
+\begin{equation}
+    \begin{split}        
+        M_{xB}^{des} &= k_{p, \phi} (\phi^{des} - \phi) + k_{d, \phi} (p^{des} - p), \\
+        M_{yB}^{des} &= k_{p, \theta} (\theta^{des} - \theta) + k_{d, \theta} (q^{des} - q), \\
+        M_{zB}^{des} &= k_{p, \psi} (\psi^{des} - \psi) + k_{d, \psi} (r^{des} - r).
+    \end{split}
 \end{equation}

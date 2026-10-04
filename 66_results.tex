@@ -2,58 +2,7 @@
 
 \subsection{Simulation Environment and Setup}
 
-The composite vehicle consists of four homogeneous quadrotors rigidly attached to the corners of a $1 \times 1$ m central structural frame. The payload is modeled as a small $125 \times 10^{-6}$ m$^3$ box positioned near the geometric center, subject to a spatial offset as described in Eq.~(\ref{eq:payload_random}). Simulations were executed within the PyBullet physics engine using a discrete time step of $\Delta t = 1/240$ s (240 Hz). Individual quadrotor thrust is saturated at a maximum of 50 N, and gravitational acceleration is set to $g = 9.81$ m/s$^2$. The unladen structure possesses a baseline mass of $m_f = 6.8$ kg and carries a payload of $m_p = 1.0$ kg, resulting in a total composite system mass of $m_{tot} = 7.8$ kg,
-
-\begin{equation}
-    d_{x, cog}, d_{y, cog} \sim \mathcal{U}(-0.15, 0.15) \text{ meters}
-    \label{eq:payload_random}.
-\end{equation}
-
-To establish a strict stability boundary, any flight exceeding a maximum Euclidean distance tracking error of 2.0 meters is automatically terminated. The execution and evaluation of these flights are governed by a Software-in-the-Loop (SITL) architecture, detailed in Algorithm. \ref{alg:simulation_loop}, which synchronizes the high-frequency controller with the PINN estimator by utilizes a receding horizon buffer of $W = 50$ transitions, executing 3 gradient optimization steps every 5 simulation iterations. The detailed parameters used in the simulation is shown in Table. \ref{tab:sim_parameters}.
-
-\begin{algorithm}[htbp]
-\caption{Simulation Loop with Control and Online Parameters Estimation}
-\label{alg:simulation_loop}
-\begin{algorithmic}[1]
-\Require Episode maximum $E_{max}$
-\Require Simulation duration $T_{max}$, Physics time step $\Delta t$
-\Require PINN update interval $N = 8$ (approx. 30 Hz)
-\Require PINN optimization steps $S_{steps}$
-\Require Replay buffer $\mathcal{B}$ with capacity $W = 50$
-\Require Initial parameter guesses: $\hat{d}_{x}, \hat{d}_{y}, \hat{\mathbf{J}}, \hat{m}$
-
-\State Init current episode $e_{now}$
-
-\While{$e_{now} \le E_{max}$}
-    \State Init quadrotor states $\mathbf{x}_0$
-    \State Init PINN $\mathcal{N}_\theta$ with random weights $\theta$
-    \State Simulation time $t \gets 0$
-    \State Step counter $k \gets 0$
-
-    \While{$t \le T_{max}$}
-        \State Physics engine update state at t
-        \State Compute target states $\mathbf{p}_d, \mathbf{v}_d, \mathbf{a}_d, \psi_d, \dot{\psi}_d$ at $t$
-
-        \State Current state $\mathbf{x}_k = (\mathbf{p}, \mathbf{v}, \mathbf{R}, \boldsymbol{\omega})$
-        \State Append $\mathbf{x}_k$ and rotor thrusts $\mathbf{T}_k$ to buffer $\mathcal{B}$
-
-        \If{$k \pmod N == 0$ \textbf{and} $|\mathcal{B}| == W$}
-        \State Compute composite loss $\mathcal{L}_{total}$ over $\mathcal{B}$
-        \State Optimize $\theta$ for $S_{steps}$
-        \State Extract parameters $\hat{d}_{x}, \hat{d}_{y}, \hat{\mathbf{J}}, \hat{m}$ from $\mathcal{N}_\theta$
-        \EndIf
-
-        \State Calculate desired $\mathbf{F}_{des}, \mathbf{M}_{des}$
-        \State Construct $\mathbf{A}_{\text{final}}$ for offsets $\hat{d}_{x}, \hat{d}_{y}$
-        \State Quadrotors commands $\mathbf{u} \gets \mathbf{A}_{\text{final}}^{-1} [\mathbf{F}_{des}^T, \mathbf{M}_{des}^T]^T$
-
-        \State Apply saturated commands $\mathbf{u}$ to physics engine
-        \State $t \gets t + \Delta t$
-        \State $k \gets k + 1$
-    \EndWhile
-\EndWhile
-\end{algorithmic}
-\end{algorithm}
+The simulation was done using a laptop with 3050 series 6 GB of VRAM GPU and Cuda library support. The optimizer used was Adam cite here. Table. \ref{tab:sim_parameters} contains the independent variables used in Algorithm. \ref{alg:simulation_loop}.
 
 \begin{table}[htbp]
     \centering
@@ -63,29 +12,32 @@ To establish a strict stability boundary, any flight exceeding a maximum Euclide
         \hline
         \textbf{Parameter} & \textbf{Symbol} & \textbf{Value} \\
         \hline
-        Simulation/Control Rate & $f$ & 240 Hz \\
         Simulation Time-Step & $\Delta t$ & $1/240$ s \\
-        Simulation Total Episodes & $E_{max}$ & 10 \\
+        Gravitational Acceleration & $g$ & 9.81 m/s$^2$ \\
         Simulation Duration & $t_{sim}$ & 90 s \\
         Base Frame Mass & $m_f$ & 6.8 kg \\
+        Quadrotor Mass & - & 1.5 kg \\
         Payload Mass & $m_p$ & 1.0 kg \\
+        Payload Volume & $V_p$ & $125 \times 10^{-6}$ m$^3$ \\
         Total System Mass & $m_{tot}$ & 7.8 kg \\
+        Base System Inertia on X axis & $J_{xx}$ & 1.713 \\
+        Base System Inertia on Y axis & $J_{yy}$ & 1.713 \\
+        Base System Inertia on Z axis & $J_{zz}$ & 3.413 \\
         Max Thrust per Drone & $T_{max}$ & 50 N \\
-        Max Distance Error & $e_{max}$ & 2.0 m \\
-        Unknown Payload Offset & $d_{cog}$ & $[-0.15, 0.15]$ m \\
+        Unknown Payload Offset & $d_{x, cog}, d_{y, cog}$ & $(-0.15, 0.15)$ m \\
         PINN Window Size & $W$ & 50 steps \\
         Optimization Frequency & $N_{opt}$ & 5 steps \\
         Gradient Steps per Cycle & $S_{grad}$ & 3 steps \\
-        Lambda Data & $\lambda_{1}$ & 100 \\
-        Lambda Translational & $\lambda_{2}$ & 1 \\
-        Lambda Rotational & $\lambda_{3}$ & 1 \\
+        % Lambda Data & $\lambda_{1}$ & 100 \\
+        % Lambda Translational & $\lambda_{2}$ & 1 \\
+        % Lambda Rotational & $\lambda_{3}$ & 1 \\
         \hline
     \end{tabular}
 \end{table}
 
 \subsection{Parameter Convergence and Estimation}
 
-Across 10 distinct simulation episodes, each initialized with newly randomized payload offset parameters, the proposed framework maintained continuous stability without a single failure or crash. Notably, optimal tracking performance was achieved during the very first episode, demonstrating that the system possesses robust, immediate adaptation capabilities and does not rely on multi-episode historical training to function as shown in Fig. \ref{fig:body_position_xy_ep_0} and Table. \ref{tab:ep_res_all}. The PINN effectively minimized the physics residuals formulated in Eq. (\ref{eq:loss_function}), (\ref{eq:trans_loss}), (\ref{eq:rot_loss}) as shown in Fig. \ref{fig:physics_loss_ep_1}. While transient spikes in $2^{nd}$ episode loss function occurred during aggressive maneuvers, these residuals rapidly decreased. This confirms that the coupled PINN and controller can dynamically compensate for varying payload offsets regardless of instantaneous trajectory demands.
+Bahas ablation studynya disini
 
 \begin{figure}[htbp]
     \centering

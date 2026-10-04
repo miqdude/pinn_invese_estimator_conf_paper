@@ -1,48 +1,27 @@
-\section{Estimator Design}
-
-\subsection{Centralized Control Design}
-Based on \cite{mellinger2013trajectory}, the controller separates position and attitude tracking. Position and velocity errors define commanded acceleration $\mathbf{\ddot{r}}_{cmd}$:
-
-\begin{equation}
-    \mathbf{e}_p = \mathbf{r}_{des} - \mathbf{r}, \quad \mathbf{e}_v = \mathbf{\dot{r}}_{des} - \mathbf{\dot{r}},
-\end{equation}
-
-\begin{equation}\mathbf{\ddot{r}}_{cmd} = K_p \mathbf{e}_p + K_d \mathbf{e}_v + \mathbf{\ddot{r}}_{\text{ff}}.
-\end{equation}
-
-Desired roll ($\phi^{des}$), pitch ($\theta^{des}$), and total thrust ($F_B^{des}$) are extracted via small-angle approximation:
-
-\begin{equation}
-    \begin{split}
-        \phi^{des} &= \frac{1}{g} (\ddot{r}^{des}_{x} \sin \psi_T - \ddot{r}^{des}_{y} \cos \psi_T), \\
-        \theta^{des} &= \frac{1}{g} (\ddot{r}^{des}_{y} \cos \psi_T + \ddot{r}^{des}_{y} \sin \psi_T), \\
-        F_B^{des} &= m(\ddot{r}^{des}_{z} + g).
-    \end{split}
-\end{equation}
-
-Inner-loop desired moments $\mathbf{M}_B^{des}$ regulate orientation against angular velocities $(p, q, r)$:
-
-\begin{equation}
-    \begin{split}        
-        M_{xB}^{des} &= k_{p, \phi} (\phi^{des} - \phi) + k_{d, \phi} (p^{des} - p), \\
-        M_{yB}^{des} &= k_{p, \theta} (\theta^{des} - \theta) + k_{d, \theta} (q^{des} - q), \\
-        M_{zB}^{des} &= k_{p, \psi} (\psi^{des} - \psi) + k_{d, \psi} (r^{des} - r).
-    \end{split}
-\end{equation}
+\section{Proposed PINN-Based Estimator Design}
 
 \subsection{PINN Architecture}
-To address the 6-DOF rigid-body dynamics, our PINN framework utilizes continuous time $t$ as the sole independent variable to solve the time-dependent ODEs \cite{lakshminarayana_application_2022, mojgani_kolmogorov_2023, raissi_physics-informed_2019}. The neural network architecture comprises two fully connected hidden layers, each containing 64 neurons. These intermediate layers map to a 12-neuron output layer designed to predict the full kinematic state vector of the composite body, which is explicitly defined in the subsequent section. The complete network topology is illustrated in Fig. \ref{fig:pinns_architecture}.
+To address the 6-DOF rigid-body dynamics, our PINN framework utilizes continuous time $t$ as the sole independent variable to solve the time-dependent ODEs and the output is a 12 states consists of posisition, linear velocity, attitude, and angular velocity \cite{lakshminarayana_application_2022, mojgani_kolmogorov_2023, raissi_physics-informed_2019}. The PINN design used in this research is described in Table. \ref{tab:pinn_architecture}.
 
-\begin{figure}[htbp] 
-    \centering 
-    \includegraphics[width=0.3\textwidth]{images/pinns_architecture.png} 
-    \caption{The proposed PINN architecture based on a fully connected ANN. The input layer accepts continuous time $t$, which is propagated through two hidden layers comprising 64 neurons each. The output layer yields the 12-dimensional kinematic state vector of the composite body defined in Eq. (\ref{eq:body_state}). A hyperbolic tangent ($\tanh$) activation function is employed across all hidden layers.}
-    \label{fig:pinns_architecture} 
-\end{figure}
+\begin{table}[htbp]
+\caption{Proposed Fully Connected layer PINN Architecture Specifications}
+\label{tab:pinn_architecture}
+\centering
+\begin{tabular}{lcc}
+\hline
+\textbf{Layer} & \textbf{Number of Neurons} & \textbf{Activation Function} \\
+\hline
+Input & 1 (Continuous time $t$) & None \\
+Hidden 1 & 64 & tanh \\
+Hidden 2 & 64 & tanh \\
+Output & 12 (Kinematic state vector) & Linear \\
+\hline
+\end{tabular}
+\end{table}
 
 \subsection{Loss Function Formulation}
 
-The neural network acts as a surrogate model mapping continuous time $t$ to the predicted 6-DOF kinematic state of the system. We define the complete state vector $\mathbf{s}$, comprising the position, linear velocity, attitude, and angular velocity:
+The neural network acts as a surrogate model mapping continuous time $t$ to the predicted 12 states of the system. We define the complete state vector $\mathbf{s}$, comprising the position, linear velocity, attitude, and angular velocity:
 
 \begin{equation}
     \mathbf{s} = [\mathbf{r}^T, \mathbf{\dot{r}}^T, \boldsymbol{\eta}^T, \boldsymbol{\omega}^T]^T \label{eq:body_state}.
@@ -51,15 +30,15 @@ The neural network acts as a surrogate model mapping continuous time $t$ to the 
 To train the network, we formulate a composite loss function $\mathcal{L}_{total}$ \cite{serrano_physics-informed_2024, raissi_physics-informed_2019} that simultaneously penalizes empirical data deviations and violations of rigid-body dynamics. This objective function is defined as a weighted sum of the data-driven observation loss ($\mathcal{L}_{data}$), the translational physics residual ($\mathcal{L}_{trans}$), and the rotational physics residual ($\mathcal{L}_{rot}$):
 
 \begin{equation}
-    \mathcal{L}_{total} = \lambda_{1} \mathcal{L}_{data} + \lambda_{2} \mathcal{L}_{trans} + \lambda_{3} \mathcal{L}_{rot} \label{eq:loss_function}.
+    \mathcal{L}_{total} = \lambda_{1} \mathcal{L}_{data} + \lambda_{2} \mathcal{L}_{trans} + \lambda_{3} \mathcal{L}_{rot} \label{eq:loss_function},
 \end{equation}
 
-where the hyperparameters $\lambda_{1}, \lambda_{2},$ and $\lambda_{3}$ balance the gradient contributions of each loss term.
+\noindent where the hyperparameters $\lambda_{1}, \lambda_{2},$ and $\lambda_{3}$ are constants to balance the contributions of each loss term.
 
-The data loss ensures the network's predictions anchor to the physical reality measured by the onboard sensors. It is computed as the Mean Squared Error (MSE) over a temporal window of $N$ collocation points:
+The data loss ensures the network's predictions ($\hat{s}$) anchor to the physical reality measured by the onboard sensors. It is computed as the Mean Squared Error (MSE) over a temporal window of $N$ collocation points:
 
 \begin{equation}
-    \mathcal{L}_{data} = \frac{1}{N} \sum_{i=1}^{N} \left\lVert \mathbf{\hat{S}}_i - \mathbf{S}_{true,i} \right\rVert^2 \label{eq:data_loss}.
+    \mathcal{L}_{data} = \frac{1}{N} \sum_{i=1}^{N} \left\lVert \mathbf{\hat{s}}_i - \mathbf{s}_{true,i} \right\rVert^2 \label{eq:data_loss}.
 \end{equation}
 
 To enforce the translational physical constraints, we formulate a residual loss based on the Euler-Lagrange equations \cite{haghighatdoost_euler_2026}. Let $L = T_{trans} - V$ denote the system Lagrangian, where $T_{trans}$ is the kinetic energy and $V$ is the potential energy. The translational dynamics must satisfy:
@@ -74,13 +53,13 @@ Evaluating the kinetic inertial term yields $m\mathbf{\dot{v}}$. Rather than ana
     \mathcal{L}_{trans} = \frac{1}{N} \sum_{i=1}^{N} \left\lVert m \mathbf{\dot{v}}_i + \frac{\partial V}{\partial \mathbf{r}_i} - \mathbf{F}_{ext, i} \right\rVert^2 \label{eq:trans_loss}.
 \end{equation}
 
-While translational dynamics are straightforward, evaluating rotational dynamics using minimal coordinates (e.g., Euler angles) introduces mathematical singularities, commonly known as gimbal lock, at extreme pitch or roll angles. To ensure global mathematical validity, we evaluate the rotational dynamics directly on the Special Orthogonal group, $SO(3)$. The rotational kinetic energy of the rigid multi-agent system is defined as
+While translational dynamics are straightforward, evaluating rotational dynamics using minimal coordinates (e.g., Euler angles) introduces mathematical singularities, commonly known as gimbal lock, at extreme pitch or roll angles. To ensure global mathematical validity, we evaluate the rotational dynamics directly on the Special Orthogonal group, $SO(3)$. The rotational kinetic energy of the rigid multi-agent system is defined as:
 
 \begin{equation}
     T_{rot} = \frac{1}{2} \boldsymbol{\omega}^T \mathbf{J} \boldsymbol{\omega},
 \end{equation}
 
-\noindent where $\mathbf{J} \in \mathbb{R}^{3 \times 3}$ is the estimated inertia tensor. By applying the Lagrange-d'Alembert principle to the $SO(3)$ manifold, we obtain the coordinate-free Euler-Poincaré equations:
+\noindent where $\mathbf{J} \in \mathbb{R}^{3 \times 3}$ is the estimated inertia tensor. By applying the Euler-Poincaré equations of motion for rigid body we get:
 
 \begin{equation}
     \frac{d}{dt} \left( \frac{\partial T_{rot}}{\partial \boldsymbol{\omega}} \right) + \boldsymbol{\omega} \times \frac{\partial T_{rot}}{\partial \boldsymbol{\omega}} = \boldsymbol{\tau}_{ext} \label{eq:euler_poincare}.
@@ -97,3 +76,49 @@ Finally, the rotational loss penalizes the mean squared error of this residual, 
 \begin{equation}
     \mathcal{L}_{rot} = \frac{1}{N} \sum_{i=1}^{N} \left\lVert \mathcal{R}_{rot, i} \right\rVert^2 \label{eq:rot_loss}.
 \end{equation}
+
+\subsection{Simulation Design}
+
+To eliminate computational latency anomalies and isolate the convergence behavior of the online-learning PINN estimator, a synchronous, single-threaded lockstep execution architecture was utilized for this proof of concept. This guarantees temporal alignment between the plant state and the automatic differentiation tracking within the physics loss. Transitioning these mechanics to an asynchronous, dual-rate Software-in-the-Loop (SIL) framework to handle real-world computational lag is preserved for future work.
+
+In Algorithm. \ref{alg:simulation_loop}, the PINN needs to estimate XY offsets $\hat{d}_{x}, \hat{d}_{y}$, estimated mass $\hat{m}$. For estimating the new system inertia $\hat{\mathbf{J}}$ we used manual calculation from $\hat{d}_{x}, \hat{d}_{y}$ and $\hat{m}$ with the initial inertia without payload using the parallel axes theorem cite here.
+
+\begin{algorithm}[htbp]
+\caption{Synchronous Online Parameter Estimation Simulation}
+\label{alg:simulation_loop}
+\begin{algorithmic}[1]
+\Require Simulation duration $T_{max}$, Physics time step $\Delta t$
+\Require PINN update interval $N$ steps
+\Require PINN optimization steps $S_{steps}$
+\Require Replay buffer $\mathcal{B}$ with capacity $W$
+\Require Initial parameter guesses: $\hat{d}_{x}, \hat{d}_{y}, \hat{\mathbf{J}}, \hat{m}$
+
+\State Init quadrotor physical states $\mathbf{x}_0$
+\State Init PINN $\mathcal{N}_\theta$ with random weights $\theta$
+\State Simulation time $t \gets 0$
+\State Step counter $k \gets 0$
+
+\While{$t \le T_{max}$}
+    \State Physics engine update state at $t$
+    \State Compute target states $\mathbf{p}_d, \mathbf{v}_d, \mathbf{a}_d, \psi_d, \dot{\psi}_d$ at $t$
+
+    \State Read current state $\mathbf{x}_k = (\mathbf{p}, \mathbf{v}, \mathbf{R}, \boldsymbol{\omega})$
+    \State Append $\mathbf{x}_k$ and applied rotor thrusts $\mathbf{T}_k$ to buffer $\mathcal{B}$
+
+    \If{$k \pmod N == 0$ \textbf{and} $|\mathcal{B}| == W$}
+        \State Compute composite physics loss $\mathcal{L}_{total}$ over $\mathcal{B}$
+        \State Optimize $\theta$ via backpropagation for $S_{steps}$
+        \State Extract updated parameters $\hat{d}_{x}, \hat{d}_{y}, \hat{m}$ from $\mathcal{N}_\theta$
+        \State Calculate $\hat{\mathbf{J}}$
+    \EndIf
+
+    \State Calculate desired control wrench $\mathbf{F}_{des}, \mathbf{M}_{des}$
+    \State Construct control allocation matrix $\mathbf{A}_{\text{final}}$ using $\hat{d}_{x}, \hat{d}_{y}$
+    \State Compute thrust commands $\mathbf{u} \gets \mathbf{A}_{\text{final}}^{\dagger} [\mathbf{F}_{des}^T, \mathbf{M}_{des}^T]^T$
+
+    \State Apply saturated commands $\mathbf{u}$ to physics engine
+    \State $t \gets t + \Delta t$
+    \State $k \gets k + 1$
+\EndWhile
+\end{algorithmic}
+\end{algorithm}
