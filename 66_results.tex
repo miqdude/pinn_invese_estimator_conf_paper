@@ -2,7 +2,7 @@
 
 \subsection{Simulation Environment and Setup}
 
-The simulation was done using a laptop with 3050 series 6 GB of VRAM GPU and Cuda library support. The optimizer used was Adam cite here. Table. \ref{tab:sim_parameters} contains the independent variables used in Algorithm. \ref{alg:simulation_loop}.
+The simulation was done using a laptop with 3050 series 6 GB of VRAM GPU and Cuda library support in Python 3.11.0. Table. \ref{tab:sim_parameters} contains the independent variables used in Algorithm. \ref{alg:simulation_loop}.
 
 \begin{table}[htbp]
     \centering
@@ -37,330 +37,223 @@ The simulation was done using a laptop with 3050 series 6 GB of VRAM GPU and Cud
 
 \subsection{Parameter Convergence and Estimation}
 
-Bahas ablation studynya disini
+Network optimization is driven by the Adam optimizer with a learning rate of $5 \times 10^{-3}$ \cite{serrano_physics-informed_2024}. To systematically evaluate the learning characteristics of the PINN, various penalty weighting coefficients ($\lambda$) for the composite physics loss were tested.
 
-\begin{figure}[htbp]
+The experimental flight sequence initiates at $t = 0$ s with a vertical ascent to a baseline hover. The system stabilizes at an altitude of 3 meters for an initial 5-second window, allowing the physical state to settle before dynamic maneuvers commence. To rigorously excite the system's rotational dynamics and test the estimator under varying degrees of coupling, the rigid-frame is subjected to three distinct spatial trajectories: a figure-8, a circular path, and a uniaxial "lawnmower" motion.
+
+For the sake of brevity in the manuscript, we define only the desired 3D position vector $\mathbf{p}_d(t)$ for each maneuver. The corresponding feedforward velocity $\mathbf{v}_d(t)$ and acceleration $\mathbf{a}_d(t)$ setpoints utilized by the geometric controller are computed via exact analytical time differentiation of $\mathbf{p}_d(t)$.
+
+The Figure-8 trajectory incorporates a constant radius ($R = 8$ m), an angular frequency ($\omega = 0.10$ rad/s), and a sinusoidal vertical variation ($z_v$) to simultaneously stress the thrust allocation bounds:\begin{equation}\mathbf{p}_d(t) = \begin{bmatrix}R \sin(\omega t) \\frac{R}{2} \sin(2\omega t) z_0 + z_v \sin(\omega t)\end{bmatrix}.\end{equation}
+
+The Circular trajectory features a tighter radius ($R = 5$ m) and faster angular frequency ($\omega = 0.15$ rad/s), retaining the continuous altitude variation:\begin{equation}\mathbf{p}_d(t) = \begin{bmatrix}R \sin(\omega t) R (1 - \cos(\omega t)) z_0 + z_v \sin(\omega t)\end{bmatrix}.\end{equation}
+
+The Lawnmower maneuver isolates longitudinal dynamics by commanding forward-backward motion exclusively along the world X-axis at an elevated, constant altitude of $z_0 = 5$ m. For a single maneuver phase with an amplitude $A = 2.0$ m and duration $T_{phase} = 5.0$ s, the trajectory is defined as:
+
+% path trajectory
+\begin{equation}
+\mathbf{p}d(t) = \begin{bmatrix}
+\frac{A}{2} (1 - \cos(\omega_L t)) \
+0 \
+z_0
+\end{bmatrix},
+\end{equation}
+where $\omega_L = \frac{2\pi}{T{phase}}$ represents the governing phase angular frequency.
+
+\begin{figure*}[htbp]
     \centering
     \begin{tikzpicture}
-        \begin{axis}[
-            width=0.98\columnwidth, 
-            height=6cm,
-            xlabel={Position X-axis (m)},
-            ylabel={Position Y-axis (m)},
+        \begin{groupplot}[
+            group style={
+                group size=3 by 2,      % Creates a 3x2 grid
+                horizontal sep=1.2cm,   
+                vertical sep=1.2cm,     
+            },
+            width=0.31\textwidth,  
+            height=5.5cm,          
             grid=major,
             grid style={dashed, gray!30},
+            axis line style={thick},
+            tick style={thick},
+            % --- GLOBAL LEGEND SETTINGS FOR ALL PLOTS ---
             legend pos=south east,
             legend style={
                 font=\footnotesize, 
-                cells={anchor=east}
-            },
-            ymin=-6,
-            axis line style={thick},
-            tick style={thick}
+                fill=white,
+                fill opacity=.3,
+                text opacity=1,
+            }
+            % Removed "legend to name" so legends render inside each plot
         ]
             
-            \addplot[
-                color=red, 
-                line width=1.5pt
-            ] table [x=target_x_m, y=target_y_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
-            \addlegendentry{Target Position}
-            
-            \addplot[
-                color=blue!60!black, 
-                line width=1pt, 
-                dashed 
-            ] table [x=actual_x_m, y=actual_y_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_0.csv};
-            \addlegendentry{Actual Position}
-            
-        \end{axis}
+            % --- ROW 1 ---
+            % Plot 1
+            \nextgroupplot
+                \addplot[color=red, line width=1.5pt] table [x=target_x_m, y=target_y_m, col sep=comma] {conference_new_data/01_d1_r0_t0_figure8/flight_data_figure_eight_3d_ep_0.csv};
+                \addlegendentry{Target}
+                
+                \addplot[color=blue!60!black, line width=1pt, dashed] table [x=actual_x_m, y=actual_y_m, col sep=comma] {conference_new_data/01_d1_r0_t0_figure8/flight_data_figure_eight_3d_ep_0.csv};
+                \addlegendentry{Actual}
+
+            % Plot 2
+            \nextgroupplot
+                \addplot[color=red, line width=1.5pt] table [x=target_x_m, y=target_y_m, col sep=comma] {conference_new_data/11_d1_r0_t0_majumundur/flight_data_lawn_ep_0.csv};
+                \addlegendentry{Target}
+                
+                \addplot[color=blue!60!black, line width=1pt, dashed] table [x=actual_x_m, y=actual_y_m, col sep=comma] {conference_new_data/11_d1_r0_t0_majumundur/flight_data_lawn_ep_0.csv};
+                \addlegendentry{Actual}
+
+            % Plot 3
+            \nextgroupplot
+                \addplot[color=red, line width=1.5pt] table [x=target_x_m, y=target_y_m, col sep=comma] {conference_new_data/21_d1_r0_t0_circle/flight_data_circle_ep_0.csv};
+                \addlegendentry{Target}
+                
+                \addplot[color=blue!60!black, line width=1pt, dashed] table [x=actual_x_m, y=actual_y_m, col sep=comma] {conference_new_data/21_d1_r0_t0_circle/flight_data_circle_ep_0.csv};
+                \addlegendentry{Actual}
+
+            % --- ROW 2 ---
+            % Plot 4
+            \nextgroupplot
+                \addplot[color=red, line width=1.5pt] table [x=target_x_m, y=target_y_m, col sep=comma] {conference_new_data/00_d1_r1_t1_figure8/flight_data_figure_eight_3d_ep_0.csv};
+                \addlegendentry{Target}
+                
+                \addplot[color=blue!60!black, line width=1pt, dashed] table [x=actual_x_m, y=actual_y_m, col sep=comma]  {conference_new_data/00_d1_r1_t1_figure8/flight_data_figure_eight_3d_ep_0.csv};
+                \addlegendentry{Actual}
+
+            % Plot 5
+            \nextgroupplot
+                \addplot[color=red, line width=1.5pt] table [x=target_x_m, y=target_y_m, col sep=comma] {conference_new_data/10_d1_r1_t1_majumundur/flight_data_lawn_ep_0.csv};
+                \addlegendentry{Target}
+                
+                \addplot[color=blue!60!black, line width=1pt, dashed] table [x=actual_x_m, y=actual_y_m, col sep=comma] {conference_new_data/10_d1_r1_t1_majumundur/flight_data_lawn_ep_0.csv};
+                \addlegendentry{Actual}
+
+            % Plot 6
+            \nextgroupplot
+                \addplot[color=red, line width=1.5pt, legend pos=north east] table [x=target_x_m, y=target_y_m, col sep=comma] {conference_new_data/20_d1_r1_t1_circle/flight_data_circle_ep_0.csv};
+                \addlegendentry{Target}
+                
+                \addplot[color=blue!60!black, line width=1pt, dashed] table [x=actual_x_m, y=actual_y_m, col sep=comma]  {conference_new_data/20_d1_r1_t1_circle/flight_data_circle_ep_0.csv};
+                \addlegendentry{Actual}
+                
+        \end{groupplot}
+
+        % --- GLOBAL LABELS ---
+        
+        % Global Y-axis label
+        \path (group c1r1.north west) -- (group c1r2.south west) node[midway, xshift=-1.5cm, rotate=90, font=\normalsize] {Position Y-axis (m)};
+        
+        % Global X-axis label
+        \path (group c1r2.south west) -- (group c3r2.south east) node[midway, yshift=-1.2cm, font=\normalsize] {Position X-axis (m)};
+
     \end{tikzpicture}
-    \caption{The body is able to follow the desired trajectory without crashing at $1^{st}$ episode}
-    \label{fig:body_position_xy_ep_0}
-\end{figure}
+    \caption{Trajectory tracking performance in the X-Y plane for each trajectory divided by columns in order Figure-8, lawnmower, and circular path. The top row illustrates the baseline performance (without physics constraints), while the bottom row demonstrates the improved tracking of the proposed method.}
+    \label{fig:combined_states}
+\end{figure*}
 
-Operating over the receding temporal window, the network rapidly mapped the unmodeled disturbance torques to spatial mass asymmetry without requiring persistent excitation maneuvers as illustrated in Fig. \ref{fig:body_position_xz_ep_1}, the body experienced an immediate lateral drift along the positive X-axis upon takeoff due to the off-center payload. However, designed controller successfully arrested this transient drift and recovered the trajectory. This rapid stabilization was enabled by the PINN periodically converging on the offset parameters (Figs. \ref{fig:offset_x_convergence_ep_1} and \ref{fig:offset_y_convergence_ep_1}) and feeding them back into the control allocation matrix. While this represents a partial parameter convergence, it proved entirely sufficient to restore system stability. By periodically identifying and compensating for the majority of the disturbance torque, the updated allocation matrix effectively restored the baseline control, allowing it to reject the remaining unmodeled dynamics without saturating the rotors.
 
-Furthermore, the network successfully converged upon the payload mass prediction. However, as observed in Fig. (\ref{fig:mass_ep_1}), the mass estimation exhibited cyclical oscillations after the 20-second mark. These periodic fluctuations correspond directly to the dynamic tracking maneuvers, indicating that the network's mass estimation remains coupled to the multi-agent system's changing inertial movements during maneuvers.
-
-\begin{table}[htbp]
+\begin{table*}[htbp]
     \centering
-    \caption{Performance Metrics Across Multiple Episodes}
+    \caption{Steady-state estimation errors over the last 20\,s across trajectories and $\lambda$ configurations.}
     \label{tab:ep_res_all}
-    \begin{tabular}{lccc}
+    \begin{tabular}{lccccccccc}
         \hline
-        \textbf{Quality} & \textbf{Ep. 1} & \textbf{Ep. 5} & \textbf{Ep. 10} \\
+        \rule{0pt}{2.5ex}No & Trajectory & $\lambda_{1,2,3}$ & $\hat{m}$ & $\hat{d}_x$ & $\hat{d}_y$ & $\hat{J}_{xx}$ & $\hat{J}_{yy}$ & $\hat{J}_{zz}$ & Trajectory RMSE (m) \\
         \hline
-            RMSE Total Loss & 0.5462 & 1.5972 & 2.2172 \\
-            RMSE Data Loss & 0.0023 & 0.0017 & 0.0176 \\
-            RMSE Physics Loss & 0.3155 & 1.4201 & 2.042 \\
-            Offset X RMSE (meters) & 0.0153 & 0.0478 & 0.0518 \\
-            Offset Y RMSE (meters) & 0.0470 & 0.0762 & 0.0543 \\ 
-            Trajectory RMSE (meters) & 0.4129 & 0.3757 & 0.3643 \\ 
-            Trajectory x-axis RMSE (meters) & 0.2443 & 0.1521 & 0.1198 \\ 
-            Trajectory y-axis RMSE (meters) & 0.2799 & 0.2946 & 0.2954 \\ 
-            Trajectory z-axis RMSE (meters) & 0.1802 & 0.1768 & 0.1763 \\ 
-            Avg PINN Compute Time (miliseconds) & 37.59 & 34.96 & 37.18 \\ 
-            Avg PINN Compute Time (Hz) & 26.6 & 28.6 & 26.9 \\ 
-        \hline
-    \end{tabular}
-\end{table}
-
-\begin{table}[htbp]
-    \centering
-    \caption{$2^{nd}$ Episode Results}
-    \label{tab:ep_res_1}
-    \begin{tabular}{lcc}
-        \hline
-        \textbf{Quality} & \textbf{Value} & \textbf{Unit} \\
-        \hline
-            RMSE Total Loss & 0.6862 & - \\
-            RMSE Data Loss & 0.0016 & - \\
-            RMSE Physics Loss & 0.5230 & - \\
-            Offset X RMSE & 0.1564 & meters \\
-            Offset Y RMSE & 0.0901 & meters \\
-            Trajectory Loss RMSE & 0.4129 & meters \\ 
-            Trajectory x-axis RMSE & 0.2443 & meters \\ 
-            Trajectory y-axis RMSE & 0.2799 & meters \\ 
-            Trajectory z-axis RMSE & 0.1802 & meters \\ 
-            Avg PINN Compute Time & 37.59 & ms \\ 
-            Avg PINN Compute Time & 26.6 & Hz \\ 
+        \rule{0pt}{2.5ex}1 & Figure 8  & 1,1,1 & 7.834 & 0.0489 & 0.0488 & 1.7181 & 1.7180 & 3.4179 & 0.3650 \\
+        2 & Figure 8  & 1,0,0 & 6.801 & 0.0000 & 0.0000 & 1.7131 & 1.7131 & 3.4130 & 0.8863 \\
+        3 & Figure 8 & 1,1,0 & 7.836 & 0.0000 & 0.0000 & 1.7156 & 1.7156 & 3.4130 & 0.8863 \\
+        4 & Figure 8 & 1,0,1 & 6.801 & 1.7180 & 1.7184 & 1.8617 & 1.8610 & 3.7095 & 0.8528 \\
+        5 & Figure 8 & 0.1,1,1 & 7.827 & 0.0492 & 0.0490 & 1.7180 & 1.7181 & 3.4180 & 0.3637 \\
+        6 & Figure 8 & 10,1,1 & 7.838 & 0.0487 & 0.0487 & 1.7181 & 1.7181 & 3.4180 & 0.3599 \\
+        7 & Lawn & 1,1,1 & 7.980 & 0.0433 & 0.0448 & 1.7183 & 1.7189 & 3.4184 & 0.64389 \\
+        8 & Lawn & 1,0,0 & 6.801 & 0.0000 & 0.0000 & 1.7131 & 1.7131 & 3.4130 & 1.1394 \\
+        9 & Circle & 1,1,1 & 7.770 & 0.0513 & 0.0514 & 1.7180 & 1.7180 & 3.4181 & 0.2315 \\
+        10 & Circle & 1,0,0 & 6.801 & 0.0000 & 0.0000 & 1.7131 & 1.7131 & 3.4130 & 0.8528 \\
         \hline
     \end{tabular}
-\end{table}
+\end{table*}
 
-\begin{figure}[htbp]
+The trajectory tracking results in Figure. \ref{fig:combined_states} highlight the advantage of incorporating physics constraints into the estimation architecture. As depicted in the top row, the data-only baseline configuration struggles to maintain the desired path, exhibiting significant drift and steady-state error across the Figure-8, lawnmower, and circular maneuvers. Conversely, the bottom row demonstrates that the proposed physics-informed approach tightly adheres to the reference trajectories. By embedding the physical system's dynamic model into the loss function, the system successfully compensates for complex dynamic coupling and payload influences during flight, resulting in a highly stable tracking response.
+
+These visual improvements are supported by the quantitative steady-state estimation errors presented in Table. \ref{tab:ep_res_all}. Relying strictly on the data loss ($\lambda_{1,2,3} = 1,0,0$) yields a high trajectory RMSE, such as 0.8863 m for the Figure-8 maneuver and 0.8528 m for the circular path. Activating the physics constraints ($\lambda_{1,2,3} = 1,1,1$) drastically reduces these tracking errors to 0.3650 m and 0.2315 m, respectively.
+
+Furthermore, the parameter estimation data reveals a fundamental limitation of the data-only baseline, it completely fails to identify the spatial center-of-mass offsets, returning $0.0000$ m for both $\hat{d}_x$ and $\hat{d}_y$ across all trajectories. The proposed physics-informed configurations successfully estimate these spatial offsets alongside the payload mass ($\hat{m}$) and inertia tensor components ($\hat{J}_{xx}, \hat{J}_{yy}, \hat{J}_{zz}$). This confirms that the physics-based loss terms are essential for achieving accurate online parameter estimation and robust rigid-frame payload transportation.
+
+\begin{figure}[htbp] % Removed the asterisk (*) to restrict to a single column
     \centering
     \begin{tikzpicture}
-        \begin{axis}[
-            width=0.98\columnwidth, 
-            height=5cm,
-            xlabel={Time (s)},
-            ylabel={Mass (kg)},
-            xtick distance=10,
+        \begin{groupplot}[
+            group style={
+                group size=1 by 3,      % Creates a 1x3 grid (3 rows, 1 column)
+                vertical sep=1.2cm,     % Spacing between the top and bottom plots
+            },
+            width=0.95\columnwidth,     % Scales to fit within a single IEEE column
+            height=4.5cm,               % Adjusted height to fit 3 plots vertically
             grid=major,
             grid style={dashed, gray!30},
-            legend pos=south east,
+            axis line style={thick},
+            tick style={thick},
             legend style={
                 font=\footnotesize, 
-                cells={anchor=east}
-            },
-            axis line style={thick},
-            tick style={thick}
+                fill=white,
+                fill opacity=0.8,       % Added slight opacity so text remains readable over grid
+                text opacity=1,
+            }
         ]
             
-            \addplot[
-                color=red, 
-                line width=1.5pt
-            ] table [x=time_sec, y=true_mass_kg, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
-            \addlegendentry{True total mass}
-            
-            \addplot[
-                color=blue!60!black, 
-                line width=1pt, 
-                dashed 
-            ] table [x=time_sec, y=pred_mass_kg, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
-            \addlegendentry{Predicted mass}
-            
-        \end{axis}
-    \end{tikzpicture}
-    \caption{Mass prediction over-time at $2^{st}$ episode. The prediction oscillates in a repeated manner following the figure 8 trajectory.}
-    \label{fig:mass_ep_1}
-\end{figure}
+            % --- ROW 1: Mass Convergence ---
+            \nextgroupplot[ylabel={Mass (kg)}, legend pos=south east]
+                % Figure 8
+                \addplot[color=black, line width=1.5pt] table [x=time_sec, y=true_mass_kg, col sep=comma] {conference_new_data/00_d1_r1_t1_figure8/flight_data_figure_eight_3d_ep_0.csv};
+                \addlegendentry{Target}
+                
+                \addplot[color=blue!60!black, line width=1pt, dashed] table [x=time_sec, y=pred_mass_kg, col sep=comma] {conference_new_data/00_d1_r1_t1_figure8/flight_data_figure_eight_3d_ep_0.csv};
+                \addlegendentry{Figure 8}
 
-\begin{figure}[htbp]
-    \centering
-    \begin{tikzpicture}
-        \begin{axis}[
-            width=0.98\columnwidth, 
-            height=5cm,
-            xlabel={Time (s)},
-            ylabel={Loss},
-            xtick distance=10,
-            grid=major,
-            grid style={dashed, gray!30},
-            legend pos=north east,
-            legend style={
-                font=\footnotesize, 
-                cells={anchor=east}
-            },
-            axis line style={thick},
-            tick style={thick}
-        ]
-            
-            \addplot[
-                color=red, 
-                line width=1.5pt
-            ] table [x=time_sec, y=physics_loss, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
-            \addlegendentry{Physics loss}
-            
-            % \addplot[
-            %     color=blue!60!black, 
-            %     line width=1pt, 
-            %     dashed 
-            % ] table [x=actual_x_m, y=actual_z_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
-            % \addlegendentry{Actual Position}
-            
-        \end{axis}
-    \end{tikzpicture}
-    \caption{Physics loss over-time at $2^{st}$ episode. The PINN is able to arrest the sudden loss spikes and the simulation is done without crashing.}
-    \label{fig:physics_loss_ep_1}
-\end{figure}
+                % Lawnmower
+                \addplot[color=red, line width=1pt, dashed] table  [x=time_sec, y=pred_mass_kg, col sep=comma] {conference_new_data/10_d1_r1_t1_majumundur/flight_data_lawn_ep_0.csv};
+                \addlegendentry{Lawn}
 
-\begin{figure}[htbp]
-    \centering
-    \begin{tikzpicture}
-        \begin{axis}[
-            width=0.98\columnwidth, 
-            height=5cm,
-            xlabel={Position X-axis (m)},
-            ylabel={Position Z-axis (m)},
-            grid=major,
-            grid style={dashed, gray!30},
-            legend pos=south west,
-            legend style={
-                font=\footnotesize, 
-                cells={anchor=west}
-            },
-            axis line style={thick},
-            tick style={thick}
-        ]
-            
-            \addplot[
-                color=red, 
-                line width=1.5pt
-            ] table [x=target_x_m, y=target_z_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
-            \addlegendentry{Target Position}
-            
-            \addplot[
-                color=blue!60!black, 
-                line width=1pt, 
-                dashed 
-            ] table [x=actual_x_m, y=actual_z_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
-            \addlegendentry{Actual Position}
-            
-        \end{axis}
-    \end{tikzpicture}
-    \caption{Body frame position on XZ-axis at $2^{st}$ episode. The body immediately slides due to the off-center payload. The PINN is able to estimate the offset quickly before it reached the distance error limit.}
-    \label{fig:body_position_xz_ep_1}
-\end{figure}
+                % Circle
+                \addplot[color=green, line width=1pt, dashed] table [x=time_sec, y=pred_mass_kg, col sep=comma]{conference_new_data/20_d1_r1_t1_circle/flight_data_circle_ep_0.csv};
+                \addlegendentry{Circle}
 
-\begin{figure}[htbp]
-    \centering
-    \begin{tikzpicture}
-        \begin{axis}[
-            width=0.98\columnwidth, 
-            height=4cm,
-            xlabel={Time (s)},
-            ylabel={Offset (m)},
-            grid=major,
-            grid style={dashed, gray!30},
-            legend pos=north east,
-            legend style={
-                font=\footnotesize, 
-                cells={anchor=east}
-            },
-            xmin=-5,xmax=90,
-            ymin=-.6,
-            xtick distance=10,
-            axis line style={thick},
-            tick style={thick}
-        ]
-            
-            \addplot[
-                color=red, 
-                line width=1.5pt
-            ] table [x=time_sec, y=true_offset_x_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
-            \addlegendentry{True X offset}
-            
-            \addplot[
-                color=blue!60!black, 
-                line width=1pt, 
-                dashed 
-            ] table [x=time_sec, y=pred_offset_x_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
-            \addlegendentry{Predicted X offset}
-            
-        \end{axis}
-    \end{tikzpicture}
-    \caption{Predicted payload offset over time along the X-axis during the $2^{nd}$ episode. The network's ability to rapidly converge upon the true offset during the initial takeoff transient demonstrates converging parameter estimation without the requirement for persistent excitation.}
-    \label{fig:offset_x_convergence_ep_1}
-\end{figure}
+            % --- ROW 2: Offset X Convergence ---
+            \nextgroupplot[ylabel={Offset X (m)}]
+                % Figure 8
+                \addplot[color=black, line width=1.5pt] table [x=time_sec, y=true_offset_x_m, col sep=comma] {conference_new_data/00_d1_r1_t1_figure8/flight_data_figure_eight_3d_ep_0.csv};
+                \addlegendentry{Target}
 
-\begin{figure}[htbp]
-    \centering
-    \begin{tikzpicture}
-        \begin{axis}[
-            width=0.98\columnwidth, 
-            height=4cm,
-            xlabel={Time (s)},
-            ylabel={Offset (m)},
-            grid=major,
-            grid style={dashed, gray!30},
-            legend pos=north east,
-            legend style={
-                font=\footnotesize, 
-                cells={anchor=east}
-            },
-            xmin=-5,xmax=90,
-            ymin=-.6,
-            xtick distance=10,
-            axis line style={thick},
-            tick style={thick}
-        ]
-            
-            \addplot[
-                color=red, 
-                line width=1.5pt
-            ] table [x=time_sec, y=true_offset_y_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
-            \addlegendentry{True Y offset}
-            
-            \addplot[
-                color=blue!60!black, 
-                line width=1pt, 
-                dashed 
-            ] table [x=time_sec, y=pred_offset_y_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
-            \addlegendentry{Predicted Y offset}
-            
-        \end{axis}
-    \end{tikzpicture}
-    \caption{Predicted payload offset over-time on Y-axis at $2^{nd}$ episode. The network's ability to rapidly converge upon the true offset during the initial takeoff transient demonstrates converging parameter estimation without the requirement for persistent excitation.}
-    \label{fig:offset_y_convergence_ep_1}
-\end{figure}
+                \addplot[color=red, line width=1pt, dashed] table [x=time_sec, y=pred_offset_x_m, col sep=comma] {conference_new_data/00_d1_r1_t1_figure8/flight_data_figure_eight_3d_ep_0.csv};
+                \addlegendentry{Figure 8}
 
-\begin{figure}[htbp]
-    \centering
-    \begin{tikzpicture}
-        \begin{axis}[
-            width=0.98\columnwidth, 
-            height=6cm,
-            xlabel={Position X-axis (m)},
-            ylabel={Position Y-axis (m)},
-            grid=major,
-            grid style={dashed, gray!30},
-            legend pos=south east,
-            legend style={
-                font=\footnotesize, 
-                cells={anchor=east}
-            },
-            ymin=-6,
-            axis line style={thick},
-            tick style={thick}
-        ]
-            
-            \addplot[
-                color=red, 
-                line width=1.5pt
-            ] table [x=target_x_m, y=target_y_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
-            \addlegendentry{Target Position}
-            
-            \addplot[
-                color=blue!60!black, 
-                line width=1pt, 
-                dashed 
-            ] table [x=actual_x_m, y=actual_y_m, col sep=comma] {data/flight_data_figure_eight_3d_ep_1.csv};
-            \addlegendentry{Actual Position}
-            
-        \end{axis}
+                % Lawnmower
+                \addplot[color=blue, line width=1pt, dashed] table  [x=time_sec, y=pred_offset_x_m, col sep=comma] {conference_new_data/10_d1_r1_t1_majumundur/flight_data_lawn_ep_0.csv};
+                \addlegendentry{Lawn}
+
+                % Circle
+                \addplot[color=green, line width=1pt, dashed] table [x=time_sec, y=pred_offset_x_m, col sep=comma]{conference_new_data/20_d1_r1_t1_circle/flight_data_circle_ep_0.csv};
+                \addlegendentry{Circle}
+
+            % --- ROW 3: Offset Y Convergence ---
+            \nextgroupplot[ylabel={Offset Y (m)}, xlabel={Time (s)}]
+                % Figure 8
+                \addplot[color=black, line width=1.5pt] table [x=time_sec, y=true_offset_y_m, col sep=comma] {conference_new_data/00_d1_r1_t1_figure8/flight_data_figure_eight_3d_ep_0.csv};
+                \addlegendentry{Target}
+
+                \addplot[color=red, line width=1pt, dashed] table [x=time_sec, y=pred_offset_y_m, col sep=comma] {conference_new_data/00_d1_r1_t1_figure8/flight_data_figure_eight_3d_ep_0.csv};
+                \addlegendentry{Figure 8}
+
+                % Lawnmower
+                \addplot[color=blue, line width=1pt, dashed] table  [x=time_sec, y=pred_offset_y_m, col sep=comma] {conference_new_data/10_d1_r1_t1_majumundur/flight_data_lawn_ep_0.csv};
+                \addlegendentry{Lawn}
+
+                % Circle
+                \addplot[color=green, line width=1pt, dashed] table [x=time_sec, y=pred_offset_y_m, col sep=comma]{conference_new_data/20_d1_r1_t1_circle/flight_data_circle_ep_0.csv};
+                \addlegendentry{Circle}
+                
+        \end{groupplot}
     \end{tikzpicture}
-    \caption{Target position and actual position at $2^{nd}$ episode. Even with a sudden drift during takeoff, the controller is able to stabilize and follow the figure 8 trajectory.}
-    \label{fig:body_position_xy_ep_1}
+    \caption{Parameter convergence for mass, spatial offset X, and spatial offset Y across all evaluated trajectories.}
+    \label{fig:parameter_convergence}
 \end{figure}

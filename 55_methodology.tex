@@ -79,7 +79,7 @@ Finally, the rotational loss penalizes the mean squared error of this residual, 
 
 \subsection{Simulation Design}
 
-To eliminate computational latency anomalies and isolate the convergence behavior of the online-learning PINN estimator, a synchronous, single-threaded lockstep execution architecture was utilized for this proof of concept. This guarantees temporal alignment between the plant state and the automatic differentiation tracking within the physics loss. Transitioning these mechanics to an asynchronous, dual-rate Software-in-the-Loop (SIL) framework to handle real-world computational lag is preserved for future work.
+To eliminate computational latency anomalies and isolate the convergence behavior of the online-learning PINN estimator, a synchronous fixed-time simulation was utilized for this proof of concept. This guarantees temporal alignment between the plant state and the automatic differentiation tracking within the physics loss. Transitioning these mechanics to an asynchronous, dual-rate Software-in-the-Loop (SIL) framework to handle real-world computational lag is preserved for future work.
 
 In Algorithm. \ref{alg:simulation_loop}, the PINN needs to estimate XY offsets $\hat{d}_{x}, \hat{d}_{y}$, estimated mass $\hat{m}$. For estimating the new system inertia $\hat{\mathbf{J}}$ we used manual calculation from $\hat{d}_{x}, \hat{d}_{y}$ and $\hat{m}$ with the initial inertia without payload using the parallel axes theorem cite here.
 
