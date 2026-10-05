@@ -1,11 +1,7 @@
 \section{System Description}
 \subsection{System Modeling}
 
-% Coba definisikan bentuk setup quadrotornya
-% jelasin setup single dronenya
-
-%  Jelasin setup multi agent
-The system or we called it frame comprises of four 1.5 kg quadrotors rigidly attached at a distance of XX meters from the geometric center of a 0.8 kg board (dimensions XX), as illustrated in Fig. XXX. We modelled each quadrotor as ideal actuator where the thrusts command are applied directy to the simulator engine. We define an inertial world frame $\mathcal{W}$ with an upward-pointing Z-axis, and a primary body frame $\mathcal{B}$ located at the board's center. The axes of $\mathcal{B}$ align perfectly with $\mathcal{W}$ when the system is level and unrotated. Each quadrotor maintains its own local coordinate frame, which remains strictly parallel to $\mathcal{B}$ and is offset purely by a spatial translation in the XY plane. The overall system's position in $\mathcal{W}$ is denoted by $\mathbf{r} = [x, y, z]^T$, and its orientation is parameterized by Euler angles $\mathbf{\eta} = [\phi, \theta, \psi]^T$.
+The rigid-frame vehicle consists of a 0.8 kg, $1 \times 1$ m square board with four 1.5 kg quadrotors rigidly mounted at its corners, displaced by $\pm 0.5$ m from the geometric center. We define an inertial world frame $\mathcal{W}$ with an upward-pointing Z-axis, and a primary body frame $\mathcal{B}$ anchored at the board's geometric center. Within $\mathcal{B}$, the positive X-axis designates the forward direction of the vehicle, and the positive Y-axis points to the left, completing a right-handed coordinate system. At the identity orientation (level and unrotated), the axes of $\mathcal{B}$ perfectly align with $\mathcal{W}$. Each quadrotor is modeled as an ideal actuator producing direct thrust, and each maintains a local coordinate frame that is strictly parallel to $\mathcal{B}$. Due to the rigid attachments, there is no relative rotation between the drones and the central board; their alignment differs from $\mathcal{B}$ purely by a fixed spatial translation in the body's XY plane. The vehicle's global position in $\mathcal{W}$ is denoted by $\mathbf{r} = [x, y, z]^T$, and its orientation is parameterized by the Euler angles $\mathbf{\eta} = [\phi, \theta, \psi]^T$.
 
 The MAS employs a centralized control architecture derived from \cite{mellinger2013trajectory}. The composite rigid body is commanded via a unified control wrench $\boldsymbol{\tau}$, defined as:
 

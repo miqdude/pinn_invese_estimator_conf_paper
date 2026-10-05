@@ -84,7 +84,7 @@ To eliminate computational latency anomalies and isolate the convergence behavio
 In Algorithm. \ref{alg:simulation_loop}, the PINN needs to estimate XY offsets $\hat{d}_{x}, \hat{d}_{y}$, estimated mass $\hat{m}$. For estimating the new system inertia $\hat{\mathbf{J}}$ we used manual calculation from $\hat{d}_{x}, \hat{d}_{y}$ and $\hat{m}$ with the initial inertia without payload using the parallel axes theorem cite here.
 
 \begin{algorithm}[htbp]
-\caption{Synchronous Online Parameter Estimation Simulation}
+\caption{Fixed Time-step Online Parameter Estimation Simulation}
 \label{alg:simulation_loop}
 \begin{algorithmic}[1]
 \Require Simulation duration $T_{max}$, Physics time step $\Delta t$
