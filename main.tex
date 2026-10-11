@@ -16,10 +16,26 @@
 \usepackage{tabularx}
 \usepackage{booktabs} 
 
+\usepackage{fancyhdr}
+\usepackage{xcolor} % Required for the gray text color
+
+
 \usepgfplotslibrary{groupplots}
 \pgfplotsset{compat=1.18} 
 
-\title{Physics Informed Machine Learning for Parameter Estimation in Rigid Multi-Quadrotor Transport System}
+% Define a custom page style for the first page
+\fancypagestyle{firstpage}{
+    \fancyhf{} % Clear all header and footer fields
+    \renewcommand{\headrulewidth}{0pt} % Remove the default header line
+    
+    % Add the left-aligned header text
+    \fancyhead[L]{\small \color{gray} 2026 16th International Conference on System Engineering \& Technology (ICSET)\\3-4 November 2026, Bandung, Indonesia}
+    
+    % Add the left-aligned footer text (Copyright notice)
+    \fancyfoot[L]{\small \color{gray} XXX-X-XXXX-XXXX-X/XX/\$XX.00 \copyright 20XX IEEE}
+}
+
+\title{Physics-Informed Machine Learning for Parameter Estimation in Rigid Multi-Quadrotor Transport System}
 
 \author{
 \IEEEauthorblockN{Miqdad Abdurrahman, Anggera Bayuwindra, Hilton Tnunay}
@@ -31,7 +47,11 @@ Email: 23224011@mahasiswa.itb.ac.id, bayuwindra@itb.ac.id, hilton.tnunay@itb.ac.
 
 \begin{document}
 
+\bstctlcite{IEEEexample:BSTcontrol} % Turns off URLs globally
+
 \maketitle
+
+\thispagestyle{firstpage} % Forces the custom header onto the first page only
 
 \input{11_abstract}
 

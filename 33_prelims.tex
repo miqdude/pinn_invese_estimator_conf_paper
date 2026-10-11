@@ -14,7 +14,7 @@ The network typically consists of fully connected Artificial Neural Network (ANN
     \hat{u}(t) = \mathcal{N}_{\theta}(t).
 \end{equation}
 
-During training, the network minimizes a composite loss function $\mathcal{L}_{total}$ that balances empirical observation with physical consistency. The data loss ($\mathcal{L}_{data}$) anchors the network to reality by minimizing the Mean Squared Error (MSE) between the network's predictions $\hat{u}(t)$ measured state $u_{true}$ multiply with a scalar hyperparameter $\lambda_1$ at specific time steps $t_i$:
+During training, the network minimizes a composite loss function $\mathcal{L}_{total}$ that balances empirical observation with physical consistency. The data loss ($\mathcal{L}_{data}$) anchors the network to reality by minimizing the Mean Squared Error (MSE) between the network's predictions $\hat{u}(t)$ measured state $u_{true}$, multiply with a scalar hyperparameter $\lambda_1$ at specific time steps $t_i$:
 
 \begin{equation}
     \mathcal{L}_{data} = \lambda_1 \frac{1}{N} \sum_{i=1}^{N} \left\lVert \hat{u}(t_i) - u_{true}(t_i) \right\rVert^2 .

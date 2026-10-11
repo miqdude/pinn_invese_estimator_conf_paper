@@ -5,10 +5,10 @@ Cooperative multi-quadrotor systems provide scalable, high-capacity solutions fo
 
 To mitigate these unmodeled disturbances, recent literature has explored structural hardware optimizations, such as canting rotors to artificially increase yaw authority \cite{tan_cooperative_2018}, alongside advanced algorithmic adaptations. Various parameter estimation and control architectures have been successfully deployed to handle irregular payloads, including classical batch and recursive least-squares algorithms \cite{mellinger2013trajectory}, Concurrent Learning (CL) frameworks \cite{lee_concurrent_2025}, and Digital Twin (DT) Model Predictive Control (MPC) architectures \cite{farid_digital_2025}. Building upon this established body of work, there is an opportunity to explore emerging machine learning techniques as alternative estimation mechanisms for real-time flight stabilization.
 
-This research develops a Proof of Concept (PoC) for a Physics-Informed Neural Network (PINN) estimator tailored for cooperative, rigid multi-quadrotor payload transportation inside a simulation. Specifically, this work explores the feasibility of using a PINN to mitigate dynamic disturbances caused by an unmodeled, off-center static payload. To bridge the gap between PINN-based parameter estimation and multi-quadrotor control, the primary contributions of this work are:
+This research develops a Proof of Concept (PoC) for a Physics-Informed Neural Network (PINN) estimator tailored for cooperative, rigid multi-quadrotor payload transportation within a simulated environment. Specifically, this work explores the feasibility of using a PINN to mitigate dynamic disturbances caused by an unmodeled, off-center static payload. To bridge the gap between PINN-based parameter estimation and multi-quadrotor control, the primary contributions of this work are:
 
 \begin{enumerate}
     \item A PINN estimator that dynamically identifies unknown payload mass and static spatial shifts by utilizing a short-term receding data horizon;
-    \item The embedding of an energy-based loss function derived from Euler-Lagrange and Euler-Poincaré equations; 
-    \item The integration of the PINN estimator with a small angle multi-agent controller based on \cite{mellinger2013trajectory} to continuously feed updated offset parameters into the control allocation matrix, thereby restoring tracking stability.
+    \item Embedding an energy-based loss function derived from Euler-Lagrange and Euler-Poincaré equations; 
+    \item Integrating the PINN estimator with a small-angle multi-agent controller based on \cite{mellinger2013trajectory} to continuously feed updated offset parameters into the control allocation matrix.
 \end{enumerate}

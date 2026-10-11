@@ -2,7 +2,7 @@
 
 \subsection{Simulation Environment and Setup}
 
-The simulation was done using a laptop with 3050 series 6 GB of VRAM GPU and Cuda library support in Python 3.11.0. Table. \ref{tab:sim_parameters} contains the independent variables used in Algorithm. \ref{alg:simulation_loop}.
+Simulations were conducted on a laptop equipped with an NVIDIA RTX 3050 GPU (6 GB VRAM) using Python 3.11.0 with CUDA support. Table \ref{tab:sim_parameters} contains the independent variables used in Algorithm \ref{alg:simulation_loop}.
 
 \begin{table}[htbp]
     \centering
@@ -24,7 +24,7 @@ The simulation was done using a laptop with 3050 series 6 GB of VRAM GPU and Cud
         Base System Inertia on Y axis & $J_{yy}$ & 1.713 \\
         Base System Inertia on Z axis & $J_{zz}$ & 3.413 \\
         Max Thrust per Drone & $T_{max}$ & 50 N \\
-        Unknown Payload Offset & $d_{x, cog}, d_{y, cog}$ & $(-0.15, 0.15)$ m \\
+        Unknown Payload Offset & $d_{x, cog}, d_{y, cog}$ & $(0.1, 0.1)$ m \\
         PINN Window Size & $W$ & 50 steps \\
         Optimization Frequency & $N_{opt}$ & 5 steps \\
         Gradient Steps per Cycle & $S_{grad}$ & 3 steps \\
@@ -39,24 +39,37 @@ Network optimization is driven by the Adam optimizer with a learning rate of $5 
 
 The experimental flight sequence initiates at $t = 0$ s with a vertical ascent to a baseline hover. The system stabilizes at an altitude of 3 meters for an initial 5-second window, allowing the physical state to settle before dynamic maneuvers commence. To excite the system's dynamics and test the estimator, the frame is subjected to three distinct spatial trajectories: a figure-8, a circular path, and a uniaxial "lawnmower" motion.
 
-For the sake of brevity in the manuscript, we define only the desired 3D position vector $\mathbf{p}_d(t)$ for each maneuver. The corresponding feedforward velocity $\mathbf{v}_d(t)$ and acceleration $\mathbf{a}_d(t)$ setpoints utilized by the geometric controller are computed via exact analytical time differentiation of $\mathbf{p}_d(t)$.
+For the sake of brevity in the manuscript, we define only the desired 3D position vector $\mathbf{p}_d(t) = [x_d, y_d, z_d]^T \in \mathbb{R}^3$ for each maneuver. The corresponding feedforward velocity $\mathbf{v}_d(t)$ and acceleration $\mathbf{a}_d(t)$ setpoints utilized by the geometric controller are computed via exact analytical time differentiation of $\mathbf{p}_d(t)$.
 
-The Figure-8 trajectory incorporates a constant radius ($R = 8$ m), an angular frequency ($\omega = 0.10$ rad/s), and a sinusoidal vertical variation ($z_v$) to simultaneously exploring translation on frame's XYZ axis:
+The Figure-8 trajectory incorporates a constant radius ($R = 8$ m), an angular frequency ($\omega = 0.10$ rad/s), and a sinusoidal vertical variation ($z_v$) to simultaneously explore translation on frame's XYZ axis:
 
-\begin{equation}\mathbf{p}_d(t) = \begin{bmatrix}R \sin(\omega t) \\frac{R}{2} \sin(2\omega t) z_0 + z_v \sin(\omega t)\end{bmatrix}.\end{equation}
+\begin{equation}
+    \mathbf{p}_d(t) = \begin{bmatrix}R \sin(\omega t) \\
+    \frac{R}{2} \sin(2\omega t) \\
+    z_0 + z_v \sin(\omega t)\end{bmatrix}.
+\end{equation}
 
 The Circular trajectory features a radius ($R = 5$ m) and angular frequency ($\omega = 0.15$ rad/s), retaining the continuous altitude variation:
-\begin{equation}\mathbf{p}_d(t) = \begin{bmatrix}R \sin(\omega t) R (1 - \cos(\omega t)) z_0 + z_v \sin(\omega t)\end{bmatrix}.\end{equation}
+
+\begin{equation}
+    \mathbf{p}_d(t) =
+    \begin{bmatrix}
+        R \sin(\omega t) \\
+        R (1 - \cos(\omega t)) \\
+        z_0 + z_v \sin(\omega t)
+    \end{bmatrix}.
+\end{equation}
 
 The Lawnmower maneuver isolates longitudinal dynamics by commanding forward-backward motion exclusively along the world X-axis at an elevated, constant altitude of $z_0 = 5$ m. For a single maneuver phase with an amplitude $A = 2.0$ m and duration $T_{phase} = 5.0$ s, the trajectory is defined as:
 
 % path trajectory
 \begin{equation}
-\mathbf{p}d(t) = \begin{bmatrix}
-\frac{A}{2} (1 - \cos(\omega_L t)) \
-0 \
-z_0
-\end{bmatrix},
+    \mathbf{p}d(t) =
+    \begin{bmatrix}
+        \frac{A}{2} (1 - \cos(\omega_L t)) \\
+        0 \\
+        z_0
+    \end{bmatrix},
 \end{equation}
 
 where $\omega_L = \frac{2\pi}{T{phase}}$ represents the governing phase angular frequency.
@@ -179,9 +192,9 @@ where $\omega_L = \frac{2\pi}{T{phase}}$ represents the governing phase angular 
 
 The trajectory tracking results illustrated in Fig. \ref{fig:combined_states} demonstrate the significance of integrating physical constraints into the neural network's loss function. As seen in the top row, the data-only baseline struggles to maintain the desired path, exhibiting significant drift across the Figure-8, lawnmower, and circular maneuvers. Conversely, the bottom row shows that the proposed physics-informed configuration tightly adheres to all three reference trajectories. By embedding the physical system's dynamic model into the loss function, the system successfully compensates the disturbance caused by the payload, resulting in more stable tracking response.
 
-Table. \ref{tab:ep_res_all} quantifies this performance gap. Relying strictly on the data loss ($\lambda_{1,2,3} = 1,0,0$) yields a high trajectory RMSE, reaching 1.1394 m during the lawnmower maneuver and 0.8863 m for the Figure-8 path. Activating the composite physics constraints ($\lambda_{1,2,3} = 1,1,1$) substantially reduces these tracking errors to 0.64389 m and 0.3650 m respectively, and down to 0.2315 m for the circular trajectory. Furthermore, Table. \ref{tab:ep_res_all} reveals the limitation of the data loss only model: it fails to identify the offsets, returning $0.0000$ m for both $\hat{d}_x$ and $\hat{d}_y$ across all trajectories. While the physics-informed approach successfully activates offset estimation to stabilize the system, it does not achieve 100\% parameter accuracy. The network finds it challenging to fully close the gap between the estimated and true spatial offsets (converging to roughly $0.05$ m). This indicates that the neural network prioritizes minimizing the overall dynamic residual and tracking error, resulting in a drastically improved flight trajectory without requiring the absolute spatial offset values to be perfectly isolated.
+Table \ref{tab:ep_res_all} quantifies this performance gap. Relying strictly on the data loss ($\lambda_{1,2,3} = 1,0,0$) yields a high trajectory RMSE, reaching 1.1394 m during the lawnmower maneuver and 0.8863 m for the Figure-8 path. Activating the composite physics constraints ($\lambda_{1,2,3} = 1,1,1$) substantially reduces these tracking errors to 0.64389 m and 0.3650 m respectively, and down to 0.2315 m for the circular trajectory. Furthermore, Table \ref{tab:ep_res_all} reveals the limitation of the data loss only model. It fails to identify the offsets, returning $0.0000$ m for both $\hat{d}_x$ and $\hat{d}_y$ across all trajectories. While the physics-informed approach successfully activates offset estimation to stabilize the system, it does not achieve 100\% parameter accuracy. The network finds it challenging to fully close the gap between the estimated and true spatial offsets (converging to roughly $0.05$ m). This indicates that the neural network prioritizes minimizing the overall dynamic residual and tracking error, resulting in a drastically improved flight trajectory without requiring the absolute spatial offset values to be perfectly isolated.
 
-The temporal dynamics of this estimation process are detailed in Fig. \ref{fig:parameter_convergence}. The spatial offsets (Offset X and Offset Y) exhibit rapid convergence during the first 20 seconds of flight across all evaluated trajectories. However, despite this rapid stabilization and the resulting tracking improvements, the offset estimates plateau before reaching the exact target lines, visually confirming the steady-state gap observed in the tabular data. In contrast, the system mass ($\hat{m}$) adapts more gradually, steadily converging toward the target value and stabilizing between 40 and 60 seconds. While the lawnmower trajectory induces a slight overshoot in mass estimation, both the Figure-8 and circular paths maintain stable, tight convergence once the steady-state threshold is reached.
+The temporal dynamics of this estimation process are detailed in Fig. \ref{fig:parameter_convergence}. The spatial offsets (Offset X and Offset Y) exhibit convergence during the first 20 seconds of flight across all evaluated trajectories. However, despite this stabilization and the resulting tracking improvements, the offset estimates plateau before reaching the target lines, visually confirming the steady-state gap observed in Table \ref{tab:ep_res_all}. In contrast, the system mass ($\hat{m}$) adapts more gradually, steadily converging toward the target value and stabilizing between 40 and 60 seconds. While the lawnmower trajectory induces a slight overshoot in mass estimation, both the Figure-8 and circular paths maintain more stable convergence during the steady-state.
 
 \begin{figure}[htbp] % Removed the asterisk (*) to restrict to a single column
     \centering

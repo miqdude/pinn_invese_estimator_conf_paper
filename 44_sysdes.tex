@@ -1,7 +1,7 @@
 \section{System Description}
 \subsection{System Modeling}
 
-The rigid-frame vehicle consists of a 0.8 kg, $1 \times 1$ m square board with four 1.5 kg quadrotors rigidly mounted at its corners, displaced by $\pm 0.5$ m from the geometric center. We define an inertial world frame $\mathcal{W}$ with an upward-pointing Z-axis, and a primary body frame $\mathcal{B}$ anchored at the board's geometric center. Within $\mathcal{B}$, the positive X-axis designates the forward direction of the vehicle, and the positive Y-axis points to the left, completing a right-handed coordinate system. At the identity orientation (level and unrotated), the axes of $\mathcal{B}$ perfectly align with $\mathcal{W}$. Each quadrotor is modeled as an ideal actuator producing direct thrust, and each maintains a local coordinate frame that is strictly parallel to $\mathcal{B}$. Due to the rigid attachments, there is no relative rotation between the drones and the central board; their alignment differs from $\mathcal{B}$ purely by a fixed spatial translation in the body's XY plane. The vehicle's global position in $\mathcal{W}$ is denoted by $\mathbf{r} = [x, y, z]^T$, and its orientation is parameterized by the Euler angles $\mathbf{\eta} = [\phi, \theta, \psi]^T$.
+The rigid-frame vehicle consists of a 0.8 kg, $1 \times 1$ m square board with four 1.5 kg Iris quadrotors modeled by \cite{Furrer2016}, rigidly mounted at its corners, displaced by $\pm 0.5$ m from the geometric center. We define an inertial world frame $\mathcal{W}$ with an upward-pointing Z-axis, and a primary body frame $\mathcal{B}$ anchored at the board's geometric center. Within $\mathcal{B}$, the positive X-axis designates the forward direction of the vehicle, and the positive Y-axis points to the left, completing a right-handed coordinate system. At the identity orientation (level and unrotated), the axes of $\mathcal{B}$ perfectly align with $\mathcal{W}$. Each quadrotor is modeled as an ideal actuator producing direct thrust, and each maintains a local coordinate frame that is strictly parallel to $\mathcal{B}$. Due to the rigid attachments, there is no relative rotation between the drones and the central board; their alignment differs from $\mathcal{B}$ purely by a fixed spatial translation in the body's XY plane. The vehicle's global position in $\mathcal{W}$ is denoted by $\mathbf{r} = [x, y, z]^T$, and its orientation is parameterized by the Euler angles $\mathbf{\eta} = [\phi, \theta, \psi]^T$.
 
 The MAS employs a centralized control architecture derived from \cite{mellinger2013trajectory}. The composite rigid body is commanded via a unified control wrench $\boldsymbol{\tau}$, defined as:
 
@@ -9,7 +9,7 @@ The MAS employs a centralized control architecture derived from \cite{mellinger2
     \boldsymbol{\tau} = [F_B, M_{xB}, M_{yB}, M_{zB}]^T,
 \end{equation}
 
-\noindent where $F_B$ represents the total collective thrust acting along the frame's $z$-axis, while $M_{xB}$, $M_{yB}$, and $M_{zB}$ denote the respective desired roll, pitch, and yaw control moments applied about the frame which relates to individual quadrotor thrust inputs $\mathbf{u} = [F_1, F_2, F_3, F_4]^T$ via the allocation matrix $A \in \mathbb{R}^{4 \times 4}$:
+\noindent where $F_B$ represents the total collective thrust acting along the frame's $z$-axis, while $M_{xB}$, $M_{yB}$, and $M_{zB}$ denote the respective desired roll, pitch, and yaw control moments applied about the frame which relate to individual quadrotor thrust inputs $\mathbf{u} = [F_1, F_2, F_3, F_4]^T$ via the allocation matrix $A \in \mathbb{R}^{4 \times 4}$:
 
 \begin{equation} \label{eq:tau}
     \boldsymbol{\tau} = A \mathbf{u},
@@ -24,10 +24,10 @@ The MAS employs a centralized control architecture derived from \cite{mellinger2
     \end{bmatrix}.
 \end{equation}
 
-The rows of $A$ denote total thrust, roll moment, pitch moment, and yaw reactive torque, respectively.
+The rows of $A$ denote the total thrust, roll moment, pitch moment, and yaw reactive torque, respectively. Here, $c_i$ represents the yaw moment coefficient (torque-to-thrust ratio) of the $i$-th actuator, with its sign dictated by the rotor's spin direction.
 
 \subsection{Dynamic Thrust Allocation}
-A payload shifts from the body central frame, altering the effective moment arms. Let $\hat{\mathbf{d}}_{\text{cog}} = [\hat{x}_{\text{cog}}, \hat{y}_{\text{cog}}]^T$ denote the estimated offset. Redefining the lever arms as $\Delta x_i = x_i - \hat{x}_{\text{cog}}$ and $\Delta y_i = y_i - \hat{y}_{\text{cog}}$, the allocation matrix adapts dynamically:
+When a payload shifts from the body's central frame, it alters the effective moment arms. Let $\hat{\mathbf{d}}_{\text{cog}} = [\hat{x}_{\text{cog}}, \hat{y}_{\text{cog}}]^T$ denote the estimated offset. Redefining the lever arms as $\Delta x_i = x_i - \hat{x}_{\text{cog}}$ and $\Delta y_i = y_i - \hat{y}_{\text{cog}}$, the allocation matrix adapts dynamically:
 
 \begin{equation}
     A_{\text{final}} = \begin{bmatrix}

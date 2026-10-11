@@ -1,7 +1,7 @@
 \section{Proposed PINN-Based Estimator Design}
 
 \subsection{PINN Architecture}
-To address the 6-DOF rigid-body dynamics, our PINN framework utilizes continuous time $t$ as the sole independent variable to solve the time-dependent ODEs and the output is a 12 states consists of posisition, linear velocity, attitude, and angular velocity \cite{lakshminarayana_application_2022, mojgani_kolmogorov_2023, raissi_physics-informed_2019}. The PINN design used in this research is described in Table. \ref{tab:pinn_architecture}.
+To address the 6-DOF rigid-body dynamics, our PINN framework utilizes continuous time $t$ as the sole independent variable to solve the time-dependent ODEs. The output is a 12-dimensional state vector consisting of posisition, linear velocity, attitude, and angular velocity \cite{lakshminarayana_application_2022, mojgani_kolmogorov_2023, raissi_physics-informed_2019}. The PINN design used in this research is described in Table \ref{tab:pinn_architecture}.
 
 \begin{table}[htbp]
 \caption{Proposed Fully Connected layer PINN Architecture Specifications}
@@ -38,7 +38,7 @@ To train the network, we formulate a composite loss function $\mathcal{L}_{total
 The data loss ensures the network's predictions ($\hat{s}$) anchor to the physical reality measured by the onboard sensors. It is computed as the Mean Squared Error (MSE) over a temporal window of $N$ collocation points:
 
 \begin{equation}
-    \mathcal{L}_{data} = \frac{1}{N} \sum_{i=1}^{N} \left\lVert \mathbf{\hat{s}}_i - \mathbf{s}_{true,i} \right\rVert^2 \label{eq:data_loss}.
+    \mathcal{L}_{data} = \frac{1}{N} \sum_{i=1}^{N} \left\lVert \hat{s}_i - s_{true,i} \right\rVert^2 \label{eq:data_loss}.
 \end{equation}
 
 To enforce the translational physical constraints, we formulate a residual loss based on the Euler-Lagrange equations \cite{haghighatdoost_euler_2026}. Let $L = T_{trans} - V$ denote the system Lagrangian, where $T_{trans}$ is the kinetic energy and $V$ is the potential energy. The translational dynamics must satisfy:
@@ -81,7 +81,7 @@ Finally, the rotational loss penalizes the mean squared error of this residual, 
 
 To eliminate computational latency anomalies and isolate the convergence behavior of the online-learning PINN estimator, a synchronous fixed-time simulation was utilized for this proof of concept. This guarantees temporal alignment between the plant state and the automatic differentiation tracking within the physics loss. Transitioning these mechanics to an asynchronous, dual-rate Software-in-the-Loop (SIL) framework to handle real-world computational lag is preserved for future work.
 
-In Algorithm. \ref{alg:simulation_loop}, the PINN needs to estimate XY offsets $\hat{d}_{x}, \hat{d}_{y}$, estimated mass $\hat{m}$. For estimating the new system inertia $\hat{\mathbf{J}}$ we used manual calculation from $\hat{d}_{x}, \hat{d}_{y}$ and $\hat{m}$ with the initial inertia without payload using the parallel axes theorem cite here.
+In Algorithm \ref{alg:simulation_loop}, the PINN needs to estimate XY offsets $\hat{d}_{x}, \hat{d}_{y}$, and mass $\hat{m}$. To estimate the new system inertia $\hat{\mathbf{J}}$, we computed it from $\hat{d}_{x}$, $\hat{d}_{y}$, and $\hat{m}$ combined with the base inertia of the frame, using the parallel axes theorem.
 
 \begin{algorithm}[htbp]
 \caption{Fixed Time-step Online Parameter Estimation Simulation}
