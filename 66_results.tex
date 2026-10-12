@@ -14,20 +14,20 @@ Simulations were conducted on a laptop equipped with an NVIDIA RTX 3050 GPU (6 G
         \hline
         Simulation Time-Step & $\Delta t$ & $1/240$ s \\
         Gravitational Acceleration & $g$ & 9.81 m/s$^2$ \\
-        Simulation Duration & $t_{sim}$ & 90 s \\
-        Base Frame Mass & $m_f$ & 6.8 kg \\
+        Simulation Duration & $T_{max}$ & 90 s \\
+        Base Frame Mass & - & 6.8 kg \\
         Quadrotor Mass & - & 1.5 kg \\
-        Payload Mass & $m_p$ & 1.0 kg \\
-        Payload Volume & $V_p$ & $125 \times 10^{-6}$ m$^3$ \\
-        Total System Mass & $m_{tot}$ & 7.8 kg \\
+        Payload Mass & - & 1.0 kg \\
+        Payload Volume & - & $125 \times 10^{-6}$ m$^3$ \\
+        Total System Mass & $m$ & 7.8 kg \\
         Base System Inertia on X axis & $J_{xx}$ & 1.713 \\
         Base System Inertia on Y axis & $J_{yy}$ & 1.713 \\
         Base System Inertia on Z axis & $J_{zz}$ & 3.413 \\
-        Max Thrust per Drone & $T_{max}$ & 50 N \\
-        Unknown Payload Offset & $d_{x, cog}, d_{y, cog}$ & $(0.1, 0.1)$ m \\
-        PINN Window Size & $W$ & 50 steps \\
-        Optimization Frequency & $N_{opt}$ & 5 steps \\
-        Gradient Steps per Cycle & $S_{grad}$ & 3 steps \\
+        Max Thrust per Drone & - & 50 N \\
+        Unknown Payload Offset & $d_x, d_y$ & $(0.1, 0.1)$ m \\
+        PINN Window Size & $C$ & 50 steps \\
+        Optimization Frequency & $N$ & 8 steps \\
+        Gradient Steps per Cycle & $S_{steps}$ & 3 steps \\
         % Lambda Data & $\lambda_{1}$ & 100 \\
         % Lambda Translational & $\lambda_{2}$ & 1 \\
         % Lambda Rotational & $\lambda_{3}$ & 1 \\
@@ -35,13 +35,13 @@ Simulations were conducted on a laptop equipped with an NVIDIA RTX 3050 GPU (6 G
     \end{tabular}
 \end{table}
 
-Network optimization is driven by the Adam optimizer with a learning rate of $5 \times 10^{-3}$ \cite{serrano_physics-informed_2024}. To systematically evaluate the learning characteristics of the PINN, various weighting coefficients ($\lambda$) for the composite physics loss were tested.
+Network optimization is driven by the Adam optimizer with a learning rate of $5 \times 10^{-3}$ \cite{serrano_physics-informed_2024}. To systematically evaluate the learning characteristics of the PINN, various hyperparameters ($\lambda$) for the composite physics loss were tested.
 
 The experimental flight sequence initiates at $t = 0$ s with a vertical ascent to a baseline hover. The system stabilizes at an altitude of 3 meters for an initial 5-second window, allowing the physical state to settle before dynamic maneuvers commence. To excite the system's dynamics and test the estimator, the frame is subjected to three distinct spatial trajectories: a figure-8, a circular path, and a uniaxial "lawnmower" motion.
 
 For the sake of brevity in the manuscript, we define only the desired 3D position vector $\mathbf{p}_d(t) = [x_d, y_d, z_d]^T \in \mathbb{R}^3$ for each maneuver. The corresponding feedforward velocity $\mathbf{v}_d(t)$ and acceleration $\mathbf{a}_d(t)$ setpoints utilized by the geometric controller are computed via exact analytical time differentiation of $\mathbf{p}_d(t)$.
 
-The Figure-8 trajectory incorporates a constant radius ($R = 8$ m), an angular frequency ($\omega = 0.10$ rad/s), and a sinusoidal vertical variation ($z_v$) to simultaneously explore translation on frame's XYZ axis:
+The figure-eight trajectory incorporates a constant radius ($R = 8$ m), an angular frequency ($\omega = 0.10$ rad/s), and a sinusoidal vertical variation ($z_v$) to simultaneously explore translation on frame's XYZ axis:
 
 \begin{equation}
     \mathbf{p}_d(t) = \begin{bmatrix}R \sin(\omega t) \\
@@ -163,7 +163,7 @@ where $\omega_L = \frac{2\pi}{T{phase}}$ represents the governing phase angular 
         \path (group c1r2.south west) -- (group c3r2.south east) node[midway, yshift=-1.2cm, font=\normalsize] {Position X-axis (m)};
 
     \end{tikzpicture}
-    \caption{Trajectory tracking performance in the X-Y plane for each trajectory divided by columns in order Figure-8, lawnmower, and circular path. The top row illustrates the network performance with 0 weight of phyiscs loss, while the bottom row demonstrates the improved trajectory using the proposed method.}
+    \caption{Trajectory tracking performance in the XY plane for each trajectory divided by columns in order figure-eight, lawnmower, and circular path. The top row illustrates the network performance with 0 weight of phyiscs loss, while the bottom row demonstrates the improved trajectory using the proposed method.}
     \label{fig:combined_states}
 \end{figure*}
 
@@ -190,11 +190,48 @@ where $\omega_L = \frac{2\pi}{T{phase}}$ represents the governing phase angular 
     \end{tabular}
 \end{table*}
 
-The trajectory tracking results illustrated in Fig. \ref{fig:combined_states} demonstrate the significance of integrating physical constraints into the neural network's loss function. As seen in the top row, the data-only baseline struggles to maintain the desired path, exhibiting significant drift across the Figure-8, lawnmower, and circular maneuvers. Conversely, the bottom row shows that the proposed physics-informed configuration tightly adheres to all three reference trajectories. By embedding the physical system's dynamic model into the loss function, the system successfully compensates the disturbance caused by the payload, resulting in more stable tracking response.
+The trajectory tracking results in Fig.~\ref{fig:combined_states} demonstrate
+the significance of embedding physical constraints into the neural network's
+loss function. As shown in the top row, the data-only baseline fails to follow
+the reference path and exhibits significant drift across all three maneuvers.
+The bottom row shows that the physics-informed configuration tracks each
+reference trajectory tightly. By embedding the system's dynamic model into the
+loss, the estimator compensates for the disturbance introduced by the payload
+offset, producing more stable tracking.
 
-Table \ref{tab:ep_res_all} quantifies this performance gap. Relying strictly on the data loss ($\lambda_{1,2,3} = 1,0,0$) yields a high trajectory RMSE, reaching 1.1394 m during the lawnmower maneuver and 0.8863 m for the Figure-8 path. Activating the composite physics constraints ($\lambda_{1,2,3} = 1,1,1$) substantially reduces these tracking errors to 0.64389 m and 0.3650 m respectively, and down to 0.2315 m for the circular trajectory. Furthermore, Table \ref{tab:ep_res_all} reveals the limitation of the data loss only model. It fails to identify the offsets, returning $0.0000$ m for both $\hat{d}_x$ and $\hat{d}_y$ across all trajectories. While the physics-informed approach successfully activates offset estimation to stabilize the system, it does not achieve 100\% parameter accuracy. The network finds it challenging to fully close the gap between the estimated and true spatial offsets (converging to roughly $0.05$ m). This indicates that the neural network prioritizes minimizing the overall dynamic residual and tracking error, resulting in a drastically improved flight trajectory without requiring the absolute spatial offset values to be perfectly isolated.
+Table~\ref{tab:ep_res_all} quantifies this gap. With the physics terms disabled
+($\lambda_{1,2,3} = 1,0,0$), the trajectory RMSE reaches $1.1394$~m on the
+lawnmower path and $0.8863$~m on the figure-eight. Enabling the full physics
+loss ($\lambda_{1,2,3} = 1,1,1$) reduces these to $0.6439$~m and $0.3650$~m,
+respectively, and achieves $0.2315$~m on the circular trajectory. The data-only
+configuration also fails to update any physical parameter: the mass remains at
+its initial value ($6.801$~kg) and the payload offsets stay at $0.0000$~m
+across every trajectory, since the physical parameters enter the loss only
+through the physics residuals. The physics-informed estimator activates these
+parameters and drives the system toward stable tracking, though it does not
+recover the offsets exactly---the steady-state values plateau near
+$0.05$~m versus the true $0.10$~m. We attribute this gap to limited excitation
+of the tilt dynamics in the tested trajectories, which weakens the moment-arm
+signal used to identify the payload offset; the estimator instead settles on a
+value that satisfies the composite dynamic residual at the cost of some offset
+accuracy. Note that the system inertia is not a directly estimated parameter
+but is derived from $\hat{m}$, $\hat{d}_x$, and $\hat{d}_y$ via the
+parallel-axis theorem; the corresponding columns in
+Table~\ref{tab:ep_res_all} therefore reflect the accuracy of the mass and
+payload-offset estimates rather than independent inertia identification.
+Configurations~5 and~6, which sweep the data weight by one order of magnitude
+around the baseline, produce estimates within a few percent of the baseline,
+indicating that the estimator is not sensitive to moderate reweighting of the
+loss terms over this range.
 
-The temporal dynamics of this estimation process are detailed in Fig. \ref{fig:parameter_convergence}. The spatial offsets (Offset X and Offset Y) exhibit convergence during the first 20 seconds of flight across all evaluated trajectories. However, despite this stabilization and the resulting tracking improvements, the offset estimates plateau before reaching the target lines, visually confirming the steady-state gap observed in Table \ref{tab:ep_res_all}. In contrast, the system mass ($\hat{m}$) adapts more gradually, steadily converging toward the target value and stabilizing between 40 and 60 seconds. While the lawnmower trajectory induces a slight overshoot in mass estimation, both the Figure-8 and circular paths maintain more stable convergence during the steady-state.
+The temporal dynamics of this process are detailed in
+Fig.~\ref{fig:parameter_convergence}. The payload offsets converge within the
+first $20$~s across all trajectories but plateau below the target lines,
+visually confirming the steady-state gap in Table~\ref{tab:ep_res_all}. The
+mass estimate adapts more gradually, converging toward the target and
+stabilizing between $50$~s and $60$~s. The lawnmower trajectory induces a
+slight overshoot in the mass estimate, whereas the figure-eight and circular
+paths maintain more stable convergence during steady state.
 
 \begin{figure}[htbp] % Removed the asterisk (*) to restrict to a single column
     \centering
@@ -222,7 +259,7 @@ The temporal dynamics of this estimation process are detailed in Fig. \ref{fig:p
             \nextgroupplot[ylabel={Mass (kg)}, legend pos=south east]
                 % Figure 8
                 \addplot[color=black, line width=1.5pt] table [x=time_sec, y=true_mass_kg, col sep=comma] {conference_new_data/00_d1_r1_t1_figure8/flight_data_figure_eight_3d_ep_0.csv};
-                \addlegendentry{Target}
+                \addlegendentry{True}
                 
                 \addplot[color=blue!60!black, line width=1pt, dashed] table [x=time_sec, y=pred_mass_kg, col sep=comma] {conference_new_data/00_d1_r1_t1_figure8/flight_data_figure_eight_3d_ep_0.csv};
                 \addlegendentry{Figure 8}
@@ -236,10 +273,10 @@ The temporal dynamics of this estimation process are detailed in Fig. \ref{fig:p
                 \addlegendentry{Circle}
 
             % --- ROW 2: Offset X Convergence ---
-            \nextgroupplot[ylabel={Offset X (m)}]
+            \nextgroupplot[ylabel={Spatial Offset X (m)}]
                 % Figure 8
                 \addplot[color=black, line width=1.5pt] table [x=time_sec, y=true_offset_x_m, col sep=comma] {conference_new_data/00_d1_r1_t1_figure8/flight_data_figure_eight_3d_ep_0.csv};
-                \addlegendentry{Target}
+                \addlegendentry{True}
 
                 \addplot[color=red, line width=1pt, dashed] table [x=time_sec, y=pred_offset_x_m, col sep=comma] {conference_new_data/00_d1_r1_t1_figure8/flight_data_figure_eight_3d_ep_0.csv};
                 \addlegendentry{Figure 8}
@@ -253,10 +290,10 @@ The temporal dynamics of this estimation process are detailed in Fig. \ref{fig:p
                 \addlegendentry{Circle}
 
             % --- ROW 3: Offset Y Convergence ---
-            \nextgroupplot[ylabel={Offset Y (m)}, xlabel={Time (s)}]
+            \nextgroupplot[ylabel={Spatial Offset Y (m)}, xlabel={Time (s)}]
                 % Figure 8
                 \addplot[color=black, line width=1.5pt] table [x=time_sec, y=true_offset_y_m, col sep=comma] {conference_new_data/00_d1_r1_t1_figure8/flight_data_figure_eight_3d_ep_0.csv};
-                \addlegendentry{Target}
+                \addlegendentry{True}
 
                 \addplot[color=red, line width=1pt, dashed] table [x=time_sec, y=pred_offset_y_m, col sep=comma] {conference_new_data/00_d1_r1_t1_figure8/flight_data_figure_eight_3d_ep_0.csv};
                 \addlegendentry{Figure 8}

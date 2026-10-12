@@ -1,7 +1,12 @@
 \section{System Description}
+
 \subsection{System Modeling}
 
-The rigid-frame vehicle consists of a 0.8 kg, $1 \times 1$ m square board with four 1.5 kg Iris quadrotors modeled by \cite{Furrer2016}, rigidly mounted at its corners, displaced by $\pm 0.5$ m from the geometric center. We define an inertial world frame $\mathcal{W}$ with an upward-pointing Z-axis, and a primary body frame $\mathcal{B}$ anchored at the board's geometric center. Within $\mathcal{B}$, the positive X-axis designates the forward direction of the vehicle, and the positive Y-axis points to the left, completing a right-handed coordinate system. At the identity orientation (level and unrotated), the axes of $\mathcal{B}$ perfectly align with $\mathcal{W}$. Each quadrotor is modeled as an ideal actuator producing direct thrust, and each maintains a local coordinate frame that is strictly parallel to $\mathcal{B}$. Due to the rigid attachments, there is no relative rotation between the drones and the central board; their alignment differs from $\mathcal{B}$ purely by a fixed spatial translation in the body's XY plane. The vehicle's global position in $\mathcal{W}$ is denoted by $\mathbf{r} = [x, y, z]^T$, and its orientation is parameterized by the Euler angles $\mathbf{\eta} = [\phi, \theta, \psi]^T$.
+We define an inertial world frame $\mathcal{W}$ with an upward-pointing $Z$-axis, and a body frame $\mathcal{B}$ anchored at the board's geometric center. Within $\mathcal{B}$, the positive $X$-axis points forward along the vehicle, the positive $Y$-axis points to the left, completing a right-handed coordinate system, and the positive $Z$-axis points upward. At identity orientation (level and unrotated), the axes of $\mathcal{B}$ align with those of $\mathcal{W}$.
+
+The rigid-frame vehicle consists of a $0.8$~kg, $1 \times 1$~m square board with four $1.5$~kg Iris quadrotors \cite{Furrer2016} rigidly mounted at its corners. The four quadrotors are indexed $i \in \{1, 2, 3, 4\}$ and mounted at the board's corners, with quadrotor $i$ at positions $(x_1, y_1) = (0.5, 0.5)$, $(x_2, y_2) = (0.5, -0.5)$, $(x_3, y_3) = (-0.5, 0.5)$, and $(x_4, y_4) = (-0.5, -0.5)$ in $\mathcal{B}$. Each quadrotor $i$ maintains a local frame $\mathcal{B}_i$ that is strictly parallel to $\mathcal{B}$: because the attachment is rigid, there is no relative rotation between $\mathcal{B}_i$ and $\mathcal{B}$, and the two frames differ only by a fixed translation $(x_i, y_i)$ in the board's $XY$ plane.
+
+The vehicle's global position in $\mathcal{W}$ is denoted by $\mathbf{r} = [x, y, z]^T$, and its orientation is parameterized by the Euler angles $\boldsymbol{\eta} = [\phi, \theta, \psi]^T$.
 
 The MAS employs a centralized control architecture derived from \cite{mellinger2013trajectory}. The composite rigid body is commanded via a unified control wrench $\boldsymbol{\tau}$, defined as:
 
@@ -9,7 +14,7 @@ The MAS employs a centralized control architecture derived from \cite{mellinger2
     \boldsymbol{\tau} = [F_B, M_{xB}, M_{yB}, M_{zB}]^T,
 \end{equation}
 
-\noindent where $F_B$ represents the total collective thrust acting along the frame's $z$-axis, while $M_{xB}$, $M_{yB}$, and $M_{zB}$ denote the respective desired roll, pitch, and yaw control moments applied about the frame which relate to individual quadrotor thrust inputs $\mathbf{u} = [F_1, F_2, F_3, F_4]^T$ via the allocation matrix $A \in \mathbb{R}^{4 \times 4}$:
+\noindent where $F_B$ is the total collective thrust along the board's $Z$-axis, and $M_{xB}$, $M_{yB}$, and $M_{zB}$ are the desired roll, pitch, and yaw moments applied to the board frame $\mathcal{B}$. These relate to the individual quadrotor thrust inputs $\mathbf{u} = [F_1, F_2, F_3, F_4]^T$, where $F_i$ denotes the thrust produced by quadrotor $i$ along its local $Z$-axis (parallel to the board's $Z$-axis), through the allocation matrix $A \in \mathbb{R}^{4 \times 4}$:
 
 \begin{equation} \label{eq:tau}
     \boldsymbol{\tau} = A \mathbf{u},
@@ -20,28 +25,39 @@ The MAS employs a centralized control architecture derived from \cite{mellinger2
         1 & 1 & 1 & 1 \\
         y_1 & y_2 & y_3 & y_4 \\
         -x_1 & -x_2 & -x_3 & -x_4 \\
-        c_1 & c_2 & c_3 & c_4
+        \gamma_1 & \gamma_2 & \gamma_3 & \gamma_4
     \end{bmatrix}.
 \end{equation}
 
-The rows of $A$ denote the total thrust, roll moment, pitch moment, and yaw reactive torque, respectively. Here, $c_i$ represents the yaw moment coefficient (torque-to-thrust ratio) of the $i$-th actuator, with its sign dictated by the rotor's spin direction.
+The rows of $A$ correspond to the total thrust, roll moment, pitch moment, and yaw moment on the board, respectively. Here, $(x_i, y_i)$ is the position of quadrotor $i$'s center of thrust expressed in $\mathcal{B}$, and $\gamma_i$ is the yaw moment coefficient (torque-to-thrust ratio) of quadrotor $i$, with its sign dictated by the rotor's spin direction.
 
 \subsection{Dynamic Thrust Allocation}
-When a payload shifts from the body's central frame, it alters the effective moment arms. Let $\hat{\mathbf{d}}_{\text{cog}} = [\hat{x}_{\text{cog}}, \hat{y}_{\text{cog}}]^T$ denote the estimated offset. Redefining the lever arms as $\Delta x_i = x_i - \hat{x}_{\text{cog}}$ and $\Delta y_i = y_i - \hat{y}_{\text{cog}}$, the allocation matrix adapts dynamically:
+
+When a payload shifts from the board's geometric center, it alters the
+effective moment arms of each quadrotor. Let $\hat{\mathbf{c}} =
+[\hat{c}_x, \hat{c}_y]^T$ denote the estimated system CoG expressed in
+$\mathcal{B}$, produced directly by the PINN and fed to the control
+allocation matrix. Redefining the lever arms of quadrotor $i$, measured from
+the system CoG, as $\Delta x_i = x_i - \hat{c}_x$ and $\Delta y_i = y_i -
+\hat{c}_y$, the allocation matrix adapts dynamically:
 
 \begin{equation}
-    A_{\text{final}} = \begin{bmatrix}
-    1 & 1 & 1 & 1 \\
-    \Delta y_1 & \Delta y_2 & \Delta y_3 & \Delta y_4 \\
-    -\Delta x_1 & -\Delta x_2 & -\Delta x_3 & -\Delta x_4 \\
-    c_1 & c_2 & c_3 & c_4
-    \end{bmatrix}. \label{eq:allocation_matrix}
+    \mathbf{A}_{\text{final}} =
+    \begin{bmatrix}
+        1 & 1 & 1 & 1 \\
+        \Delta y_1 & \Delta y_2 & \Delta y_3 & \Delta y_4 \\
+        -\Delta x_1 & -\Delta x_2 & -\Delta x_3 & -\Delta x_4 \\
+        \gamma_1 & \gamma_2 & \gamma_3 & \gamma_4
+    \end{bmatrix}.
+    \label{eq:allocation_matrix}
 \end{equation}
 
-Control inputs are computed via the Moore-Penrose pseudo-inverse to handle transient rank deficiencies:
+\noindent Control inputs are computed via the Moore-Penrose pseudo-inverse to
+handle transient rank deficiencies:
 
 \begin{equation}
-    \mathbf{u} = A_{\text{final}}^{+} \boldsymbol{\tau}. \label{eq:final_u}
+    \mathbf{u} = \mathbf{A}_{\text{final}}^{+}\boldsymbol{\tau}.
+    \label{eq:final_u}
 \end{equation}
 
 \subsection{Centralized Control Design}
