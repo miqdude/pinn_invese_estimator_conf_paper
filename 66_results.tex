@@ -273,7 +273,7 @@ paths maintain more stable convergence during steady state.
                 \addlegendentry{Circle}
 
             % --- ROW 2: Offset X Convergence ---
-            \nextgroupplot[ylabel={Spatial Offset X (m)}]
+            \nextgroupplot[ylabel={Payload Offset X (m)}]
                 % Figure 8
                 \addplot[color=black, line width=1.5pt] table [x=time_sec, y=true_offset_x_m, col sep=comma] {conference_new_data/00_d1_r1_t1_figure8/flight_data_figure_eight_3d_ep_0.csv};
                 \addlegendentry{True}
@@ -290,7 +290,7 @@ paths maintain more stable convergence during steady state.
                 \addlegendentry{Circle}
 
             % --- ROW 3: Offset Y Convergence ---
-            \nextgroupplot[ylabel={Spatial Offset Y (m)}, xlabel={Time (s)}]
+            \nextgroupplot[ylabel={Payload Offset Y (m)}, xlabel={Time (s)}]
                 % Figure 8
                 \addplot[color=black, line width=1.5pt] table [x=time_sec, y=true_offset_y_m, col sep=comma] {conference_new_data/00_d1_r1_t1_figure8/flight_data_figure_eight_3d_ep_0.csv};
                 \addlegendentry{True}
@@ -308,6 +308,6 @@ paths maintain more stable convergence during steady state.
                 
         \end{groupplot}
     \end{tikzpicture}
-    \caption{Parameter convergence for mass, spatial offset X, and spatial offset Y across all evaluated trajectories.}
+    \caption{Parameter convergence for mass, payload offset X, and payload offset Y across all evaluated trajectories.}
     \label{fig:parameter_convergence}
 \end{figure}

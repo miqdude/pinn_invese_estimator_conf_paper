@@ -35,7 +35,7 @@ To train the network, we formulate a composite loss function $\mathcal{L}_{total
 
 \noindent where the hyperparameters $\lambda_{1}, \lambda_{2},$ and $\lambda_{3}$ balance the relative contribution of each loss term. These weights are held fixed during each training run, and their effect on estimator performance is studied in Section V.
 
-The data loss ensures the network's predictions ($\hat{s}$) anchor to the physical reality measured by the onboard sensors. It is computed as the Mean Squared Error (MSE) over a temporal window of $N$ collocation points:
+The data loss ensures the network's predictions ($\hat{s}$) anchor to the physical reality measured by the onboard sensors. It is computed as the Mean Squared Error (MSE) over a temporal window of $n$ collocation points:
 
 \begin{equation}
     \mathcal{L}_{data} = \frac{1}{n} \sum_{i=1}^{n} \left\lVert \hat{s}_i - s_{true,i} \right\rVert^2 \label{eq:data_loss}.
@@ -47,7 +47,7 @@ To enforce the translational physical constraints, we formulate a residual loss 
     \frac{d}{dt} \left( \frac{\partial L}{\partial \mathbf{v}} \right) - \frac{\partial L}{\partial \mathbf{r}} = \mathbf{F}_{ext}.
 \end{equation}
 
-Evaluating the kinetic inertial term yields $\hat{m}\hat{\mathbf{\dot{v}}}$. Rather than analytically deriving the potential gradient, we leverage PyTorch's Automatic Differentiation (Autograd) engine to dynamically compute $\frac{\partial V}{\partial \mathbf{r}}$ during the forward pass. The resulting translational physics loss minimizes the residual of these forces across the temporal window:
+Evaluating the kinetic inertial term yields $\hat{m}\mathbf{\dot{\hat{v}}}$. Rather than analytically deriving the potential gradient, we leverage PyTorch's Automatic Differentiation (Autograd) engine to dynamically compute $\frac{\partial V}{\partial \mathbf{r}}$ during the forward pass. The resulting translational physics loss minimizes the residual of these forces across the temporal window:
 
 \begin{equation}
     \mathcal{L}_{trans} = \frac{1}{n} \sum_{i=1}^{n} \left\lVert \hat{m} \mathbf{\dot{\hat{v}}}_i + \frac{\partial V}{\partial \mathbf{\hat{r}}_i} - \mathbf{F}_{ext, i} \right\rVert^2 \label{eq:trans_loss}.
