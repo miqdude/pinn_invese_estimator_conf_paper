@@ -24,7 +24,7 @@ Output & 12 (Kinematic state vector) & Linear \\
 The neural network acts as a surrogate model mapping continuous time $t$ to the predicted 12 states of the system. We define the complete state vector $\mathbf{s}$, comprising the position, linear velocity, attitude, and angular velocity:
 
 \begin{equation}
-    \mathbf{s} = [\mathbf{r}^T, \mathbf{\dot{r}}^T, \boldsymbol{\eta}^T, \boldsymbol{\omega}^T]^T \label{eq:body_state}.
+    \mathbf{s} = [\mathbf{p}^T, \mathbf{\dot{p}}^T, \boldsymbol{\eta}^T, \boldsymbol{\omega}^T]^T \label{eq:body_state}.
 \end{equation}
 
 To train the network, we formulate a composite loss function $\mathcal{L}_{total}$ \cite{serrano_physics-informed_2024, raissi_physics-informed_2019} that simultaneously penalizes empirical data deviations and violations of rigid-body dynamics. This objective function is defined as a weighted sum of the data-driven observation loss ($\mathcal{L}_{data}$), the translational physics residual ($\mathcal{L}_{trans}$), and the rotational physics residual ($\mathcal{L}_{rot}$):
@@ -41,40 +41,40 @@ The data loss ensures the network's predictions ($\hat{s}$) anchor to the physic
     \mathcal{L}_{data} = \frac{1}{n} \sum_{i=1}^{n} \left\lVert \hat{s}_i - s_{true,i} \right\rVert^2 \label{eq:data_loss}.
 \end{equation}
 
-To enforce the translational physical constraints, we formulate a residual loss based on the Euler-Lagrange equations \cite{haghighatdoost_euler_2026}. Let $L = T_{trans} - V$ denote the system Lagrangian, where $T_{trans}$ is the kinetic energy and $V$ is the potential energy. The translational dynamics must satisfy:
+To enforce the translational physical constraints, we formulate a residual loss based on the Euler-Lagrange equations \cite{haghighatdoost_euler_2026}. Let $L = T_{t} - V$ denote the system Lagrangian, where $T_{t}$ is the kinetic energy and $V$ is the potential energy. The translational dynamics must satisfy:
 
 \begin{equation}
     \frac{d}{dt} \left( \frac{\partial L}{\partial \mathbf{v}} \right) - \frac{\partial L}{\partial \mathbf{r}} = \mathbf{F}_{ext}.
 \end{equation}
 
-Evaluating the kinetic inertial term yields $\hat{m}\mathbf{\dot{\hat{v}}}$. Rather than analytically deriving the potential gradient, we leverage PyTorch's Automatic Differentiation (Autograd) engine to dynamically compute $\frac{\partial V}{\partial \mathbf{r}}$ during the forward pass. The resulting translational physics loss minimizes the residual of these forces across the temporal window:
+Evaluating the kinetic inertial term yields $\hat{m}\mathbf{\dot{\hat{p}}}$. Rather than analytically deriving the potential gradient, we leverage PyTorch's Automatic Differentiation (Autograd) engine to dynamically compute $\frac{\partial V}{\partial \mathbf{r}}$ during the forward pass. The resulting translational physics loss minimizes the residual of these forces across the temporal window:
 
 \begin{equation}
-    \mathcal{L}_{trans} = \frac{1}{n} \sum_{i=1}^{n} \left\lVert \hat{m} \mathbf{\dot{\hat{v}}}_i + \frac{\partial V}{\partial \mathbf{\hat{r}}_i} - \mathbf{F}_{ext, i} \right\rVert^2 \label{eq:trans_loss}.
+    \mathcal{L}_{t} = \frac{1}{n} \sum_{i=1}^{n} \left\lVert \hat{m} \mathbf{\dot{\hat{p}}}_i + \frac{\partial V}{\partial \mathbf{\hat{p}}_i} - \mathbf{F}_{ext, i} \right\rVert^2 \label{eq:trans_loss}.
 \end{equation}
 
 While translational dynamics are straightforward, evaluating rotational dynamics using minimal coordinates (e.g., Euler angles) introduces mathematical singularities, commonly known as gimbal lock, at extreme pitch or roll angles. To ensure global mathematical validity, we evaluate the rotational dynamics directly on the Special Orthogonal group, $SO(3)$. The rotational kinetic energy of the rigid multi-agent system is defined as:
 
 \begin{equation}
-    T_{rot} = \frac{1}{2} \hat{\boldsymbol{\omega}}^T \hat{\mathbf{J}} \hat{\boldsymbol{\omega}},
+    T_{r} = \frac{1}{2} \hat{\boldsymbol{\omega}}^T \hat{\mathbf{J}} \hat{\boldsymbol{\omega}},
 \end{equation}
 
 \noindent where $\mathbf{\hat{J}} \in \mathbb{R}^{3 \times 3}$ is the estimated inertia tensor. By applying the Euler-Poincaré equations of motion for rigid body we get:
 
 \begin{equation}
-    \frac{d}{dt} \left( \frac{\partial T_{rot}}{\partial \hat{\boldsymbol{\omega}}} \right) + \hat{\boldsymbol{\omega}} \times \frac{\partial T_{rot}}{\partial \hat{\boldsymbol{\omega}}} = \boldsymbol{\tau}_{ext} \label{eq:euler_poincare}.
+    \frac{d}{dt} \left( \frac{\partial T_{r}}{\partial \hat{\boldsymbol{\omega}}} \right) + \hat{\boldsymbol{\omega}} \times \frac{\partial T_{r}}{\partial \hat{\boldsymbol{\omega}}} = \boldsymbol{\tau}_{ext} \label{eq:euler_poincare}.
 \end{equation}
 
-The partial derivative $\frac{\partial T_{rot}}{\partial \boldsymbol{\omega}} = \mathbf{\hat{J}} \boldsymbol{\hat{\omega}}$ represents the system's angular momentum, Eq. (\ref{eq:euler_poincare}) resolves into the Newton-Euler formulation for rigid body rotation. In our cooperative framework, the total external torque $\boldsymbol{\tau}_{ext}$ comprises the known applied control wrench $\boldsymbol{\tau}_{app}$ and the unknown disturbance torque $\boldsymbol{\tau}_{dist}$ generated by the payload's CoG offset. The rotational physics residual evaluated during the forward pass is thus formulated as:
+The partial derivative $\frac{\partial T_{r}}{\partial \boldsymbol{\omega}} = \mathbf{\hat{J}} \boldsymbol{\hat{\omega}}$ represents the system's angular momentum, Eq. (\ref{eq:euler_poincare}) resolves into the Newton-Euler formulation for rigid body rotation. In our cooperative framework, the total external torque $\boldsymbol{\tau}_{ext}$ comprises the known applied control wrench $\boldsymbol{\tau}_{app}$ and the unknown disturbance torque $\boldsymbol{\tau}_{dist}$ generated by the payload's CoG offset. The rotational physics residual evaluated during the forward pass is thus formulated as:
 
 \begin{equation}
-    \mathcal{R}_{rot} = \left( \mathbf{\hat{J}} \mathbf{\dot{\hat{\boldsymbol{\omega}}}} + \boldsymbol{\hat{\omega}} \times (\mathbf{\hat{J}} \boldsymbol{\hat{\omega}}) \right) - \left( \boldsymbol{\tau}_{app} - \boldsymbol{\tau}_{dist} \right).
+    r_{r} = \left( \mathbf{\hat{J}} \mathbf{\dot{\hat{\boldsymbol{\omega}}}} + \boldsymbol{\hat{\omega}} \times (\mathbf{\hat{J}} \boldsymbol{\hat{\omega}}) \right) - \left( \boldsymbol{\tau}_{app} - \boldsymbol{\tau}_{dist} \right).
 \end{equation}
 
 Finally, the rotational loss penalizes the mean squared error of this residual, forcing the neural network to implicitly map the physical discrepancies to the true disturbance parameters:
 
 \begin{equation}
-    \mathcal{L}_{rot} = \frac{1}{n} \sum_{i=1}^{n} \left\lVert \mathcal{R}_{rot, i} \right\rVert^2 \label{eq:rot_loss}.
+    \mathcal{L}_{r} = \frac{1}{n} \sum_{i=1}^{n} \left\lVert r_{r, i} \right\rVert^2 \label{eq:rot_loss}.
 \end{equation}
 
 \subsection{Simulation Design}
@@ -100,7 +100,7 @@ The new system inertia $\hat{\mathbf{J}}$ is not estimated directly; it is deriv
 \State $t \gets 0$, \quad $k \gets 0$
 
 \While{$t \le T_{\max}$}
-    \State Read current state $\mathbf{s}_t = (\mathbf{r}, \dot{\mathbf{r}}, \boldsymbol{\eta}, \boldsymbol{\omega})$
+    \State Read current state $\mathbf{s}_t = (\mathbf{p}, \dot{\mathbf{p}}, \boldsymbol{\eta}, \boldsymbol{\omega})$
     \State Compute target states $\mathbf{p}_d, \mathbf{v}_d, \mathbf{a}_d, \psi_d, \dot{\psi}_d$ at $t$
     \State Append $\mathbf{s}_t$ and applied thrusts $\mathbf{F}_t$ to buffer $B$
 

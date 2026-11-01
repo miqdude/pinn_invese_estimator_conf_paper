@@ -2,19 +2,22 @@
 
 \subsection{System Modeling}
 
-We define an inertial world frame $\mathcal{W}$ with an upward-pointing $Z$-axis, and a body frame $\mathcal{B}$ anchored at the board's geometric center. Within $\mathcal{B}$, the positive $X$-axis points forward along the vehicle, the positive $Y$-axis points to the left, completing a right-handed coordinate system, and the positive $Z$-axis points upward. At identity orientation (level and unrotated), the axes of $\mathcal{B}$ align with those of $\mathcal{W}$.
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.8\linewidth]{images/frame_setup.png}
+    \caption{Illustration of frame setup from top view of $W$. The rigid frame is a board with size of $1\times 1$ meter. Four quadrotor attached at position of $\pm [0.5, 0.5]$ from the center of $\mathbf{p}$.}
+    \label{fig:frame_setup}
+\end{figure}
 
-The rigid-frame vehicle consists of a $0.8$~kg, $1 \times 1$~m square board with four $1.5$~kg Iris quadrotors \cite{Furrer2016} rigidly mounted at its corners. The four quadrotors are indexed $i \in \{1, 2, 3, 4\}$ and mounted at the board's corners, with quadrotor $i$ at positions $(x_1, y_1) = (0.5, 0.5)$, $(x_2, y_2) = (0.5, -0.5)$, $(x_3, y_3) = (-0.5, 0.5)$, and $(x_4, y_4) = (-0.5, -0.5)$ in $\mathcal{B}$. Each quadrotor $i$ maintains a local frame $\mathcal{B}_i$ that is strictly parallel to $\mathcal{B}$: because the attachment is rigid, there is no relative rotation between $\mathcal{B}_i$ and $\mathcal{B}$, and the two frames differ only by a fixed translation $(x_i, y_i)$ in the board's $XY$ plane.
+We define an inertial world frame $W$ with an upward-pointing $Z$-axis. The rigid frame vehicle consists of a board with position $\mathbf{p} = [\mathbf{p}_x, \mathbf{p}_y, \mathbf{p}_z]^T$ and orientation (roll, pitch, yaw) $\boldsymbol{\eta} = [\phi, \theta, \psi]^T$ on $W$ with mass $m_p$. At the corners of $\mathbf{p}$ attached Iris Quadrotor with position $\mathbf{q}$ and index $i$ on $\mathbf{p}$ with mass $m_q$ \cite{Furrer2016}. The payload's position on $\mathbf{p}$ is defined by $\mathbf{p}_p = [\mathbf{p}_x, \mathbf{p}_y, \mathbf{p}_z]$ with mass $m_{pp}$.
 
-The vehicle's global position in $\mathcal{W}$ is denoted by $\mathbf{r} = [x, y, z]^T$, and its orientation is parameterized by the Euler angles $\boldsymbol{\eta} = [\phi, \theta, \psi]^T$.
-
-The MAS employs a centralized control architecture derived from \cite{mellinger2013trajectory}. The composite rigid body is commanded via a unified control wrench $\boldsymbol{\tau}$, defined as:
+The MAS controller employs a centralized control architecture derived from \cite{mellinger2013trajectory}. The composite rigid body is commanded via a unified control wrench $\boldsymbol{\tau}$, defined as:
 
 \begin{equation}
-    \boldsymbol{\tau} = [F_B, M_{xB}, M_{yB}, M_{zB}]^T,
+    \boldsymbol{\tau} = [F, M_{x}, M_{y}, M_{z}]^T,
 \end{equation}
 
-\noindent where $F_B$ is the total collective thrust along the board's $Z$-axis, and $M_{xB}$, $M_{yB}$, and $M_{zB}$ are the desired roll, pitch, and yaw moments applied to the board frame $\mathcal{B}$. These relate to the individual quadrotor thrust inputs $\mathbf{u} = [F_1, F_2, F_3, F_4]^T$, where $F_i$ denotes the thrust produced by quadrotor $i$ along its local $Z$-axis (parallel to the board's $Z$-axis), through the allocation matrix $A \in \mathbb{R}^{4 \times 4}$:
+\noindent where $F$ is the total collective thrust along the board's $Z$-axis, and $M_{x}$, $M_{y}$, and $M_{z}$ are the desired roll, pitch, and yaw moments applied to the board frame $\mathbf{p}$. These relate to the individual quadrotor thrust $F_i$ with thrust input $\mathbf{u} = [F_1, F_2, F_3, F_4]^T$, where $F_i$ denotes the thrust produced by quadrotor along its local $Z$-axis, through the allocation matrix $A \in \mathbb{R}^{4 \times 4}$:
 
 \begin{equation} \label{eq:tau}
     \boldsymbol{\tau} = A \mathbf{u},
@@ -36,7 +39,7 @@ The rows of $A$ correspond to the total thrust, roll moment, pitch moment, and y
 When a payload shifts from the board's geometric center, it alters the
 effective moment arms of each quadrotor. Let $\hat{\mathbf{c}} =
 [\hat{c}_x, \hat{c}_y]^T$ denote the estimated system CoG expressed in
-$\mathcal{B}$, produced directly by the PINN and fed to the control
+$\mathbf{p}$, produced directly by the PINN and fed to the control
 allocation matrix. Redefining the lever arms of quadrotor $i$, measured from
 the system CoG, as $\Delta x_i = x_i - \hat{c}_x$ and $\Delta y_i = y_i -
 \hat{c}_y$, the allocation matrix adapts dynamically:
@@ -61,31 +64,32 @@ handle transient rank deficiencies:
 \end{equation}
 
 \subsection{Centralized Control Design}
-Based on \cite{mellinger2013trajectory}, the controller separates position and attitude tracking. Position and velocity errors define commanded acceleration $\mathbf{\ddot{r}}_{cmd}$:
+Based on \cite{mellinger2013trajectory}, the MAS controller separates position and attitude tracking. Position and velocity errors define commanded acceleration $\mathbf{\ddot{r}}_{cmd}$:
 
 \begin{equation}
-    \mathbf{e}_p = \mathbf{r}_{des} - \mathbf{r}, \quad \mathbf{e}_v = \mathbf{\dot{r}}_{des} - \mathbf{\dot{r}},
+    \mathbf{e}_p = \mathbf{p}_{des} - \mathbf{p}, \quad
+    \mathbf{e}_v = \mathbf{\dot{p}}_{des} - \mathbf{\dot{p}},
 \end{equation}
 
-\begin{equation}\mathbf{\ddot{r}}_{cmd} = K_p \mathbf{e}_p + K_d \mathbf{e}_v + \mathbf{\ddot{r}}_{\text{ff}}.
+\begin{equation}\mathbf{\ddot{p}}_{cmd} = K_p \mathbf{e}_p + K_d \mathbf{e}_v + \mathbf{\ddot{p}}_{\text{ff}}.
 \end{equation}
 
-Desired roll ($\phi^{des}$), pitch ($\theta^{des}$), and total thrust ($F_B^{des}$) are extracted via small-angle approximation:
+Desired roll ($\phi^{des}$), pitch ($\theta^{des}$), and total thrust ($F^{des}$) are extracted via small-angle approximation:
 
 \begin{equation}
     \begin{split}
-        \phi^{des} &= \frac{1}{g} (\ddot{r}^{des}_{x} \sin \psi_T - \ddot{r}^{des}_{y} \cos \psi_T), \\
-        \theta^{des} &= \frac{1}{g} (\ddot{r}^{des}_{y} \cos \psi_T + \ddot{r}^{des}_{y} \sin \psi_T), \\
-        F_B^{des} &= m(\ddot{r}^{des}_{z} + g).
+        \phi^{des} &= \frac{1}{g} (\ddot{p}^{des}_{x} \sin \psi_T - \ddot{p}^{des}_{y} \cos \psi_T), \\
+        \theta^{des} &= \frac{1}{g} (\ddot{r}^{des}_{y} \cos \psi_T + \ddot{p}^{des}_{y} \sin \psi_T), \\
+        F^{des} &= m(\ddot{p}^{des}_{z} + g).
     \end{split}
 \end{equation}
 
-Inner-loop desired moments $\mathbf{M}_B^{des}$ regulate orientation against angular velocities $(p, q, r)$:
+Inner-loop desired moments $\mathbf{M}^{des}$ regulate orientation against angular velocities $\omega = (p, q, r)$:
 
 \begin{equation}
     \begin{split}        
-        M_{xB}^{des} &= k_{p, \phi} (\phi^{des} - \phi) + k_{d, \phi} (p^{des} - p), \\
-        M_{yB}^{des} &= k_{p, \theta} (\theta^{des} - \theta) + k_{d, \theta} (q^{des} - q), \\
-        M_{zB}^{des} &= k_{p, \psi} (\psi^{des} - \psi) + k_{d, \psi} (r^{des} - r).
+        M_{x}^{des} &= k_{p, \phi} (\phi^{des} - \phi) + k_{d, \phi} (p^{des} - p), \\
+        M_{y}^{des} &= k_{p, \theta} (\theta^{des} - \theta) + k_{d, \theta} (q^{des} - q), \\
+        M_{z}^{des} &= k_{p, \psi} (\psi^{des} - \psi) + k_{d, \psi} (r^{des} - r).
     \end{split}
 \end{equation}

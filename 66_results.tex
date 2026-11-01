@@ -15,9 +15,9 @@ Simulations were conducted on a laptop equipped with an NVIDIA RTX 3050 GPU (6 G
         Simulation Time-Step & $\Delta t$ & $1/240$ s \\
         Gravitational Acceleration & $g$ & 9.81 m/s$^2$ \\
         Simulation Duration & $T_{max}$ & 90 s \\
-        Base Frame Mass & - & 6.8 kg \\
-        Quadrotor Mass & - & 1.5 kg \\
-        Payload Mass & - & 1.0 kg \\
+        Base Frame Mass & $m_{p}$ & 6.8 kg \\
+        Quadrotor Mass & $m_{q}$ & 1.5 kg \\
+        Payload Mass & $m_{pp}$ & 1.0 kg \\
         Payload Volume & - & $125 \times 10^{-6}$ m$^3$ \\
         Total System Mass & $m$ & 7.8 kg \\
         Base System Inertia on X axis & $J_{xx}$ & 1.713 \\
@@ -41,38 +41,36 @@ The experimental flight sequence initiates at $t = 0$ s with a vertical ascent t
 
 For the sake of brevity in the manuscript, we define only the desired 3D position vector $\mathbf{p}_d(t) = [x_d, y_d, z_d]^T \in \mathbb{R}^3$ for each maneuver. The corresponding feedforward velocity $\mathbf{v}_d(t)$ and acceleration $\mathbf{a}_d(t)$ setpoints utilized by the geometric controller are computed via exact analytical time differentiation of $\mathbf{p}_d(t)$.
 
-The figure-eight trajectory incorporates a constant radius ($R = 8$ m), an angular frequency ($\omega = 0.10$ rad/s), and a sinusoidal vertical variation ($z_v$) to simultaneously explore translation on frame's XYZ axis:
+The figure-eight trajectory incorporates a constant radius 8 m, an angular frequency 0.10 rad/s, and a sinusoidal vertical variation ($z_v$) to simultaneously explore translation on frame's XYZ axis:
 
 \begin{equation}
-    \mathbf{p}_d(t) = \begin{bmatrix}R \sin(\omega t) \\
-    \frac{R}{2} \sin(2\omega t) \\
-    z_0 + z_v \sin(\omega t)\end{bmatrix}.
+    \mathbf{p}_d(t) = \begin{bmatrix}8 \sin(0.1 t) \\
+    4 \sin(0.2 t) \\
+    z_0 + z_v \sin(0.1 t)\end{bmatrix}.
 \end{equation}
 
-The Circular trajectory features a radius ($R = 5$ m) and angular frequency ($\omega = 0.15$ rad/s), retaining the continuous altitude variation:
+The Circular trajectory features a radius 5 m and angular frequency 0.15 rad/s, retaining the continuous altitude variation:
 
 \begin{equation}
     \mathbf{p}_d(t) =
     \begin{bmatrix}
-        R \sin(\omega t) \\
-        R (1 - \cos(\omega t)) \\
-        z_0 + z_v \sin(\omega t)
+        5 \sin(0.15 t) \\
+        5 (1 - \cos(0.15 t)) \\
+        z_0 + z_v \sin(0.15 t)
     \end{bmatrix}.
 \end{equation}
 
-The Lawnmower maneuver isolates longitudinal dynamics by commanding forward-backward motion exclusively along the world X-axis at an elevated, constant altitude of $z_0 = 5$ m. For a single maneuver phase with an amplitude $A = 2.0$ m and duration $T_{phase} = 5.0$ s, the trajectory is defined as:
+The Lawnmower maneuver isolates longitudinal dynamics by commanding forward-backward motion exclusively along the world X-axis at an elevated, constant altitude of 5 m. For a single maneuver phase with an amplitude 2.0 m and duration 5.0 s, the trajectory is defined as:
 
 % path trajectory
 \begin{equation}
-    \mathbf{p}d(t) =
+    \mathbf{p}_d(t) =
     \begin{bmatrix}
-        \frac{A}{2} (1 - \cos(\omega_L t)) \\
+        \frac{5}{2} (1 - \cos(\frac{2\pi}{5.0} t)) \\
         0 \\
-        z_0
+        5
     \end{bmatrix},
 \end{equation}
-
-where $\omega_L = \frac{2\pi}{T{phase}}$ represents the governing phase angular frequency.
 
 \subsection{Parameter Convergence and Estimation}
 

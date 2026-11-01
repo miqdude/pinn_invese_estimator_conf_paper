@@ -1,0 +1,34 @@
+Algorithm: Fixed Time-step Online Parameter Estimation
+
+REQUIRE: Simulation duration T_max, physics time step dt
+REQUIRE: PINN optimization interval N steps
+REQUIRE: PINN gradient steps per cycle S_steps
+REQUIRE: Replay buffer B with capacity C
+REQUIRE: Initial parameter guesses: m_hat, cx_hat, cy_hat
+
+INITIALIZE quadrotor physical states x_0
+INITIALIZE PINN N_theta with random weights theta
+SET t = 0
+SET k = 0
+
+WHILE t <= T_max DO
+    READ current state s_t = (p, p_dot, eta, omega)
+    COMPUTE target states p_d, v_d, a_d, psi_d, psi_dot_d at time t
+    APPEND s_t and applied thrusts F_t to buffer B
+
+    IF k MOD N == 0 AND size(B) == C THEN
+        COMPUTE composite loss L_total over buffer B
+        OPTIMIZE theta via backpropagation for S_steps steps
+        EXTRACT m_hat, cx_hat, cy_hat from N_theta
+        COMPUTE payload offset d_hat = ((m_f + m_p_hat) / m_p_hat) * [cx_hat, cy_hat]^T
+        CALCULATE J_hat from m_hat, d_hat, J
+    END IF
+
+    COMPUTE desired control wrench (F_des, M_des)
+    CONSTRUCT allocation matrix A_final using cx_hat, cy_hat
+    COMPUTE control inputs u = pseudo_inverse(A_final) * [F_des^T, M_des^T]^T
+    APPLY saturated commands u to physics engine
+    
+    SET t = t + dt
+    SET k = k + 1
+END WHILE

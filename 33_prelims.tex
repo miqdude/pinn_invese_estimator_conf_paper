@@ -8,11 +8,11 @@ regularizers within the loss function \cite{raissi2019physics,mojgani_kolmogorov
 
 The network consists of fully connected layers $\mathcal{N}$ parameterized by
 weights and biases $\theta$ \cite{raissi2019physics}. Consider a dynamical
-system governed by $\mathcal{F}(u, \dot{u}, \ddot{u}, t) = 0$. The PINN acts
-as a surrogate mapping time $t$ to a predicted state $\hat{u}(t)$:
+system governed by $\dot{\mathbf{x}} = \mathbf{x}(t)$. The PINN acts
+as a surrogate mapping time $t$ to a predicted state $\hat{\mathbf{x}}(t)$:
 
 \begin{equation}
-    \mathcal{N}_{\theta}(t) = \hat{u}(t).
+    \mathcal{N}_{\theta}(t) = \hat{\mathbf{x}}(t).
 \end{equation}
 
 \noindent Training minimizes a composite loss $\mathcal{L}_{total}$ balancing
@@ -21,14 +21,14 @@ network to measurements via the Mean Squared Error (MSE) over $n$ time steps
 $t_i$:
 
 \begin{equation}
-    \mathcal{L}_{data} = \lambda_1 \frac{1}{n} \sum_{i=1}^{n}
-    \left\lVert \hat{u}(t_i) - u_{true}(t_i) \right\rVert^2 .
+    \mathcal{L}_{d} = \frac{1}{n} \sum_{i=1}^{n}
+    \left\lVert \hat{\mathbf{x}}(t_i) - \mathbf{x}(t_i) \right\rVert^2 .
 \end{equation}
 
-Simultaneously, the network evaluates the physical validity of its predictions. Rather than relying on numerical approximation, PINNs leverage Automatic Differentiation (Autograd) to compute exact analytical derivatives of the output with respect to the input (e.g., $\dot{\hat{u}} = \frac{\partial \mathcal{N}_{\theta}}{\partial t}$). These derivatives are substituted back into the governing equation to form a physics residual $R(t) = \mathcal{F}(\hat{u}, \dot{\hat{u}}, \ddot{\hat{u}}, t)$. The physics loss ($\mathcal{L}_{physics}$) penalizes any deviation across $n$ collocation points:
+Simultaneously, the network evaluates the physical validity of its predictions. Rather than relying on numerical approximation, PINNs leverage Automatic Differentiation (Autograd) to compute exact analytical derivatives of the output with respect to the input (e.g., $\hat{\mathbf{x}}(t) = \frac{\partial \mathcal{N}_{\theta}}{\partial t}$). These derivatives are substituted back into the governing equation to form a physics residual $r(t) = \hat{\mathbf{x}}(t)$. The physics loss ($\mathcal{L}_{p}$) penalizes any deviation across $n$ collocation points:
 
 \begin{equation}
-    \mathcal{L}_{physics} = \lambda_2 \frac{1}{n} \sum_{j=1}^{n} \left\lVert R(t_j) \right\rVert^2 .
+    \mathcal{L}_{p} = \frac{1}{n} \sum_{i=1}^{n} \left\lVert r(t_i) \right\rVert^2 .
 \end{equation}
 
-The total loss is calculated as a sum of these objectives, $\mathcal{L}_{total} = \mathcal{L}_{data} + \mathcal{L}_{physics}$. By minimizing this composite function, the network learns to predict states that not only match the data but also strictly obey the underlying physical mechanics of the system \cite{mojgani_kolmogorov_2023}.
+The total loss is calculated as a sum of these objectives, $\mathcal{L}_{total} = \mathcal{L}_{d} + \mathcal{L}_{p}$. By minimizing this composite function, the network learns to predict states that not only match the data but also strictly obey the underlying physical mechanics of the system \cite{mojgani_kolmogorov_2023}.
