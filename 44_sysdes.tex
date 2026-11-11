@@ -64,7 +64,7 @@ handle transient rank deficiencies:
 \end{equation}
 
 \subsection{Centralized Control Design}
-Based on \cite{mellinger2013trajectory}, the MAS controller separates position and attitude tracking. Position and velocity errors define commanded acceleration $\mathbf{\ddot{r}}_{cmd}$:
+Based on \cite{mellinger2013trajectory}, the MAS controller separates position and attitude tracking. Position and velocity errors define commanded acceleration $\mathbf{\ddot{p}}_{cmd}$ with feedforward acceleration $\mathbf{\ddot{p}}_{\text{ff}}$:
 
 \begin{equation}
     \mathbf{e}_p = \mathbf{p}_{des} - \mathbf{p}, \quad

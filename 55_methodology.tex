@@ -50,7 +50,7 @@ To enforce the translational physical constraints, we formulate a residual loss 
 Evaluating the kinetic inertial term yields $\hat{m}\mathbf{\dot{\hat{p}}}$. Rather than analytically deriving the potential gradient, we leverage PyTorch's Automatic Differentiation (Autograd) engine to dynamically compute $\frac{\partial V}{\partial \mathbf{r}}$ during the forward pass. The resulting translational physics loss minimizes the residual of these forces across the temporal window:
 
 \begin{equation}
-    \mathcal{L}_{t} = \frac{1}{n} \sum_{i=1}^{n} \left\lVert \hat{m} \mathbf{\dot{\hat{p}}}_i + \frac{\partial V}{\partial \mathbf{\hat{p}}_i} - \mathbf{F}_{ext, i} \right\rVert^2 \label{eq:trans_loss}.
+    \mathcal{L}_{trans} = \frac{1}{n} \sum_{i=1}^{n} \left\lVert \hat{m} \mathbf{\dot{\hat{p}}}_i + \frac{\partial V}{\partial \mathbf{\hat{p}}_i} - \mathbf{F}_{ext, i} \right\rVert^2 \label{eq:trans_loss}.
 \end{equation}
 
 While translational dynamics are straightforward, evaluating rotational dynamics using minimal coordinates (e.g., Euler angles) introduces mathematical singularities, commonly known as gimbal lock, at extreme pitch or roll angles. To ensure global mathematical validity, we evaluate the rotational dynamics directly on the Special Orthogonal group, $SO(3)$. The rotational kinetic energy of the rigid multi-agent system is defined as:
@@ -74,12 +74,12 @@ The partial derivative $\frac{\partial T_{r}}{\partial \boldsymbol{\omega}} = \m
 Finally, the rotational loss penalizes the mean squared error of this residual, forcing the neural network to implicitly map the physical discrepancies to the true disturbance parameters:
 
 \begin{equation}
-    \mathcal{L}_{r} = \frac{1}{n} \sum_{i=1}^{n} \left\lVert r_{r, i} \right\rVert^2 \label{eq:rot_loss}.
+    \mathcal{L}_{rot} = \frac{1}{n} \sum_{i=1}^{n} \left\lVert r_{r, i} \right\rVert^2 \label{eq:rot_loss}.
 \end{equation}
 
 \subsection{Simulation Design}
 
-To eliminate computational latency anomalies and isolate the convergence behavior of the online-learning PINN estimator, a synchronous fixed-time simulation was utilized for this proof of concept. This guarantees temporal alignment between the plant state and the automatic differentiation tracking within the physics loss. Transitioning these mechanics to an asynchronous, dual-rate Software-in-the-Loop (SIL) framework to handle real-world computational lag is preserved for future work.
+To eliminate computational latency anomalies and isolate the convergence behavior of the online-learning PINN estimator, a synchronous fixed-time simulation was utilized in this research. This guarantees temporal alignment between the plant state and the automatic differentiation tracking within the physics loss. Transitioning these mechanics to an asynchronous, dual-rate Software-in-the-Loop (SITL) framework to handle real-world computational lag is preserved for future work.
 
 In Algorithm~\ref{alg:simulation_loop}, the PINN estimates the system CoG
 $\hat{\mathbf{c}} = [\hat{c}_x, \hat{c}_y]^T$ and the total mass $\hat{m}$.

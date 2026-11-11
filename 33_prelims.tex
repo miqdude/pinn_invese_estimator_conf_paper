@@ -7,8 +7,7 @@ treat the governing Ordinary or Partial Differential Equations as explicit
 regularizers within the loss function \cite{raissi2019physics,mojgani_kolmogorov_2023}.
 
 The network consists of fully connected layers $\mathcal{N}$ parameterized by
-weights and biases $\theta$ \cite{raissi2019physics}. Consider a dynamical
-system governed by $\dot{\mathbf{x}} = \mathbf{x}(t)$. The PINN acts
+weights and biases $\theta$ \cite{raissi2019physics}. Consider a dynamical system governed by $\dot{\mathbf{x}}(t) = f(x(t), u(t), t)$. The PINN acts
 as a surrogate mapping time $t$ to a predicted state $\hat{\mathbf{x}}(t)$:
 
 \begin{equation}
